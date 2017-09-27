@@ -39,10 +39,32 @@ void AhoCorasick::addWord(vector<string> word){
 }
 
 void AhoCorasick::makeGraph(){
-
+	/*
+	statenum = init + 1
+	if cur_size < pattern num + patternlen + 1 => resize
+	loop from start word to end word
+		cur_state = init
+		length = 0
+		loop for find end of graph log
+			if graph[cur_state][cur_word[index]] == -1 => break
+			else cur_state = graph[cur_state][cur_word[index]], length++
+		loop to end of cur word
+			graph[cur_state++][cur_word[index]] = length++
+			if cur_word at end => graph[that word index][cur word end] = length
+	*/
 }
 
 int AhoCorasick::search(string input){
+	/*
+	cur = init
+	cur string = ""
+	loop from start of input to end of input
+		cur = graph[cur][input[index]]
+		if( cur < init) => accept, register depth at result[string]
+		else if(cur == -1) start at next input[index], string = ""  ex> string , at r -1, start from i
+
+
+	*/
 
 }
 	
