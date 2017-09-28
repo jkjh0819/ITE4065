@@ -17,11 +17,13 @@ public:
 	void makeGraph();
 	int search(string input);
 	void deleteWord(string word);
+	vector<string> retResult();
 
 private:
 	vector<vector<int> > graph;
 	vector<string> words;
-	int init_state;
+	vector<string> result;
+	int patternNum;
 	int state_num;
 	int cur_size;
 	int patternLen;
