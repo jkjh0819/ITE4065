@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <set>
 
 using namespace std;
 
@@ -15,16 +16,17 @@ public:
 	~AhoCorasick();
 	void addWord(vector<string> word);
 	void makeGraph();
-	int search(string input);
+	vector<string> search(string input);
 	void deleteWord(string word);
-	vector<string> retResult();
 
 private:
 	vector<vector<int> > graph;
 	vector<string> words;
 	vector<string> result;
+	set<int> del;
+	int init_state;
 	int patternNum;
 	int state_num;
 	int cur_size;
 	int patternLen;
-}
+};

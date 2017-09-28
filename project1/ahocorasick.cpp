@@ -1,19 +1,21 @@
 #include "ahocorasick.h"
 
 AhoCorasick::AhoCorasick(){
-	this->graph.resize(3, vector<int> (26, -1));
-	this->init_state = 1;
-	this->state_num = 2;
-	this->cur_size = 3;	
+	this->graph.resize(1, vector<int> (MAX_ALPHA, -1));
+	this->init_state = 0;
+	this->patternNum = 0;
+	this->state_num = 1;
+	this->cur_size = 1;	
 	this->patternLen = 0;
 }
 	
 AhoCorasick::AhoCorasick(int patternNum, int patternLen){
-	this->graph.resize(patternNum + patternLen * 2 + 1, vector<int> (26, -1));
-	this->patternNum = patternNum;
-	this->state_num = patternNum + 1;
+	this->graph.resize(patternNum + patternLen * 2 + 1, vector<int> (MAX_ALPHA, -1));
+	this->init_state = 0;
+	this->patternNum = 0;
+	this->state_num = 1;
 	this->cur_size = patternNum + patternLen * 2 + 1;
-	this->patternLen = patternLen;
+	this->patternLen = 0;
 }
 
 AhoCorasick::~AhoCorasick(){
@@ -23,35 +25,31 @@ AhoCorasick::~AhoCorasick(){
 void AhoCorasick::addWord(vector<string> word){
 	bool somethingAdded = false;
 
-	for(vector<string>::iterator it = this->words.begin(); it != this->words.end(); it++){
-		if (find(this->words.begin(), this->words.end(), word) != this->words.end()) {
-			this->words.push_back(word);
-			this->patternLen += *it.length();
+	for(vector<string>::iterator it = word.begin(); it != word.end(); it++){
+			this->words.push_back(*it);
+			this->patternLen += it->length();
 			this->patternNum++;
-			somethingAdded = true;
-		}
-		else {
-			continue;
-		}
 	}
-	if(somethingAdded) {
-		this->makeGraph();
-	}
+
+	del.clear();
+	this->makeGraph();
 }
 
 void AhoCorasick::makeGraph(){
-	int init_state = patternNum, cur_state, final_state = 0;
+	int cur_state, final_state = 0;
+	this->init_state = patternNum;
 	this->state_num = this->init_state + 1;
 	if(this->cur_size < (this->patternNum + this->patternLen + 1)){
-		this->graph.resize(patternNum + patternLen * 2 + 1, vector<int> (26, -1));
+		this->graph.resize(patternNum + patternLen * 2 + 1, vector<int> (MAX_ALPHA, -1));
 		this->cur_size = patternNum + patternLen * 2 + 1;
 	}
 
 	for(vector<string>::iterator it = words.begin(); it != words.end(); it++){
 		int index;
 		string cur_word = *it;
-
+		
 		cur_state = init_state;
+
 		for(index = 0; index < cur_word.length();){
 			if(graph[cur_state][cur_word[index]-'a'] == -1){
 				break;
@@ -62,12 +60,13 @@ void AhoCorasick::makeGraph(){
 		}
 
 		while(index < cur_word.length()){
-			if(++index == cur_word.length()){
+			if(index+1 == cur_word.length()){
 				graph[cur_state][cur_word[index]-'a'] = final_state++;
 			} else {
 				graph[cur_state][cur_word[index]-'a'] = state_num;
 				cur_state = state_num++;
 			}
+			index++;
  		}
 
 	}
@@ -86,23 +85,25 @@ void AhoCorasick::makeGraph(){
 	*/
 }
 
-int AhoCorasick::search(string input){
-	int init_state = patternNum, cur_state;
+vector<string> AhoCorasick::search(string input){
+	int cur_state = this->init_state;
 	string s = "";
 
-	cur_state = init_state;
 	result.clear();
 
 	for(int index = 0; index < input.length();){
 		cur_state = graph[cur_state][input[index] - 'a'];
 		s += input[index];
-		if(cur_state < init_state) {
-			result.push_back(s);
-			index++;
-		} else if (cur_state == -1) {
+
+		if (cur_state == -1) {
 			s = "";
 			index++;
 			cur_state = init_state;
+		} else if(cur_state < init_state) {
+			if(del.find(cur_state) == del.end()){
+				result.push_back(s);
+			}
+			index++;
 		} else {
 			index++;
 		}
@@ -119,27 +120,18 @@ int AhoCorasick::search(string input){
 
 
 	*/
-
+	return this->result;
 }
 	
 void AhoCorasick::deleteWord(string word){
-	int cur_state = init_state;
+	int cur_state = this->init_state;
 
-	vector<int>::iterator position = find(this->words.begin(), this->words.end(), word);
-	if (position != myVector.end()) {
-    	for(int index = 0; index < word.length() - 1; index++){
-			cur_state = graph[cur_state][word[index]-'a'];
-		}
-
+	vector<string>::iterator position = find(this->words.begin(), this->words.end(), word);
+	if (position != words.end()) {
+		size_t index = distance(words.begin(), position);
+		del.insert(index);
     	this->words.erase(position);
     	this->patternNum--;
 	}
-	
-
-	
-	
 }
 
-vector<string> AhoCorasick::retResult(){
-	return this->result;
-}
