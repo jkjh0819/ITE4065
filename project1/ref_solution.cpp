@@ -26,10 +26,10 @@ int main(){
         word_list.insert(buf);
     }
 
-    //words = vector<string>(word_list.begin(), word_list.end());
+    words = vector<string>(word_list.begin(), word_list.end());
     FSA = AhoCorasick(patterNum, patternLen);
-    //FSA.addWord(words);
-    //words.clear();
+    FSA.addWord(words);
+    words.clear();
 
     cout << "R" << std::endl;
 
@@ -39,14 +39,10 @@ int main(){
         switch(cmd){
             case 'Q':
                 {
-                    /*if(!words.empty()){
+                    if(!words.empty()){
                         FSA.addWord(words);
                         words.clear();
-                    } else {
-                        FSA.makeGraph();
-                    }*/
-                    FSA.makeGraph(word_list);
-
+                    }
                     vector<string> result = FSA.search(buf);
                    /* multimap<size_t, string> result;
                     for (set<string>::iterator it = word_list.begin();
@@ -79,13 +75,13 @@ int main(){
                 }
                 break;
             case 'A':
-                /*if(word_list.find(buf) == word_list.end()){
+                if(word_list.find(buf) == word_list.end()){
                     words.push_back(buf);
-                }*/
-                word_list.insert(buf);
+                }
+                //word_list.insert(buf);
                 break;
             case 'D':
-                //FSA.deleteWord(buf);
+                FSA.deleteWord(buf);
                 word_list.erase(buf);
                 break;
         }
