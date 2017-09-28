@@ -75,7 +75,7 @@ int main(){
                 }
                 break;
             case 'A':
-                if(word_list.find(buf) != word_list.end()){
+                if(word_list.find(buf) == word_list.end()){
                     words.push_back(buf);
                 }
                 //word_list.insert(buf);

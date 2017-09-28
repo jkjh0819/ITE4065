@@ -42,6 +42,9 @@ void AhoCorasick::makeGraph(){
 	if(this->cur_size < (this->patternNum + this->patternLen + 1)){
 		this->graph.resize(patternNum + patternLen * 2 + 1, vector<int> (MAX_ALPHA, -1));
 		this->cur_size = patternNum + patternLen * 2 + 1;
+	} else {
+		for (auto &row : graph)
+    		fill(row.begin(), row.end(), -1);
 	}
 
 	for(vector<string>::iterator it = words.begin(); it != words.end(); it++){
@@ -86,30 +89,37 @@ void AhoCorasick::makeGraph(){
 }
 
 vector<string> AhoCorasick::search(string input){
+	map<string,bool> check;
+
+	for (auto w : words)
+    	check.emplace(w, false);
+
 	int cur_state = this->init_state;
+	
 	string s = "";
 
 	result.clear();
 
-	for(int index = 0; index < input.length();){
-		cur_state = graph[cur_state][input[index] - 'a'];
-		s += input[index];
+	for(int start = 0; start < input.length();start++){
+		for(int index = start; index < input.length();){
+			cur_state = graph[cur_state][input[index] - 'a'];
+			s += input[index];
 
-		if (cur_state == -1) {
-			s = "";
-			index++;
-			cur_state = init_state;
-		} else if(cur_state < init_state) {
-			if(del.find(cur_state) == del.end()){
-				result.push_back(s);
+			if (cur_state == -1) {
+				s = "";
+				cur_state = init_state;
+				break;
+			} else if(cur_state < init_state) {
+				if(del.find(cur_state) == del.end() && check[s] != true){
+					result.push_back(s);
+					check[s] = true;
+				}
+				index++;
+			} else {
+				index++;
 			}
-			index++;
-		} else {
-			index++;
 		}
-
 	}
-
 	/*
 	cur = init
 	cur string = ""
@@ -117,8 +127,6 @@ vector<string> AhoCorasick::search(string input){
 		cur = graph[cur][input[index]]
 		if( cur < init) => accept, register depth at result[string]
 		else if(cur == -1) start at next input[index], string = ""  ex> string , at r -1, start from i
-
-
 	*/
 	return this->result;
 }
