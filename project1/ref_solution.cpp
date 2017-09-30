@@ -13,6 +13,7 @@ int main(){
     string buf;
     AhoCorasick FSA;
     //vector<string> words;  //temporary buffer
+    set<string> words;
     int patterNum = 0, patternLen = 0;
     bool added = false;
     bool deleted = false;
@@ -30,9 +31,9 @@ int main(){
 
     //words = vector<string>(word_list.begin(), word_list.end());
     FSA = AhoCorasick(patterNum, patternLen);
-    //FSA.addWord(words);
+    FSA.addWord(word_list);
     //words.clear();
-    FSA.makeGraph(word_list, patternLen);
+    //FSA.makeGraph(word_list, patternLen);
 
     cout << "R" << std::endl;
 
@@ -47,7 +48,8 @@ int main(){
                         words.clear();
                     }*/
                     if(added){
-                        FSA.makeGraph(word_list, patternLen);
+                        FSA.addWord(words);
+                        words.clear();
                     } 
 
                     vector<string> result = FSA.search(buf);
@@ -86,7 +88,8 @@ int main(){
                     words.push_back(buf);
                 }*/
                 if(word_list.insert(buf).second){
-                    patternLen += buf.size();
+                    words.insert(buf);
+                    //patternLen += buf.size();
                     added = true;
                 }
                 //word_list.insert(buf);

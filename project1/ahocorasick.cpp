@@ -22,19 +22,24 @@ AhoCorasick::~AhoCorasick(){
 
 }
 	
-/*void AhoCorasick::addWord(vector<string> word){
-	bool somethingAdded = false;
+void AhoCorasick::addWord(set<string> word){
+	//bool somethingAdded = false;
 
-	for(vector<string>::iterator it = word.begin(); it != word.end(); it++){
-			this->words.push_back(*it);
+	for(auto w : del)
+		this->words.erase(w);
+
+	del.clear();
+
+	for(set<string>::iterator it = word.begin(); it != word.end(); it++){
+			this->words.insert(*it);
 			this->patternLen += it->length();
 			//this->patternNum++;
 	}
 
 	this->makeGraph();
-}*/
+}
 
-/*
+
 void AhoCorasick::makeGraph(){
 	int cur_state, final_state = 0;
 
@@ -51,7 +56,7 @@ void AhoCorasick::makeGraph(){
     		fill(row.begin(), row.end(), -1);
 	}
 
-	for(vector<string>::iterator it = words.begin(); it != words.end(); it++){
+	for(set<string>::iterator it = words.begin(); it != words.end(); it++){
 		int index;
 		string cur_word = *it;
 		
@@ -80,14 +85,15 @@ void AhoCorasick::makeGraph(){
 			index++;
 		}
 	}	
-}*/
+}
 
-void AhoCorasick::makeGraph(set<string>& word_list, int patternLen){
+/*
+void AhoCorasick::makeGraph(set<string>* word_list, int patternLen){
 	int cur_state, final_state = 0;
 
 	this->init_state = word_list.size();
 	this->patternNum = word_list.size();
-	this->words = word_list;
+	this->words = *word_list;
 	this->state_num = this->init_state + 1;
 	this->patternLen = patternLen;
 	this->del.clear();
@@ -131,7 +137,7 @@ void AhoCorasick::makeGraph(set<string>& word_list, int patternLen){
 			index++;
 		}
 	}
-}
+}*/
 
 vector<string> AhoCorasick::search(string input){
 	map<string,bool> check;
@@ -177,6 +183,7 @@ vector<string> AhoCorasick::search(string input){
 
 void AhoCorasick::deleteWord(string word){
 	del.insert(word);
+	patternLen -= word.size();
 	/*int cur_state = this->init_state;
 
 	vector<string>::iterator position = find(this->words.begin(), this->words.end(), word);
