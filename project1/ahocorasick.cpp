@@ -82,15 +82,16 @@ void AhoCorasick::makeGraph(){
 	}	
 }*/
 
-void AhoCorasick::makeGraph(set<string> word_list, int patternLen){
+void AhoCorasick::makeGraph(set<string>& word_list, int patternLen){
 	int cur_state, final_state = 0;
 
 	this->init_state = word_list.size();
 	this->patternNum = word_list.size();
 	this->words = word_list;
-	this->del.clear();
 	this->state_num = this->init_state + 1;
-	
+	this->patternLen = patternLen;
+	this->del.clear();
+
 	if(this->cur_size < (this->patternNum + this->patternLen + 1)){
 		this->graph.resize(patternNum + patternLen * 2 + 1, vector<int> (MAX_ALPHA, -1));
 		this->cur_size = patternNum + patternLen * 2 + 1;

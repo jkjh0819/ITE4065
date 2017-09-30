@@ -17,7 +17,7 @@ public:
 	~AhoCorasick();
 	//void addWord(vector<string> word);
 	//void makeGraph();
-	void makeGraph(set<string> word_list, int patternLen);
+	void makeGraph(set<string>& word_list, int patternLen);
 	vector<string> search(string input);
 	void deleteWord(string word);
 
