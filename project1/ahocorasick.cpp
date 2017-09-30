@@ -23,12 +23,10 @@ AhoCorasick::~AhoCorasick(){
 }
 	
 void AhoCorasick::addWord(vector<string> word){
-	//bool somethingAdded = false;
 
 	for(vector<string>::iterator it = word.begin(); it != word.end(); it++){
 			this->words.push_back(*it);
 			this->patternLen += it->length();
-			//this->patternNum++;
 	}
 
 	this->makeGraph();
@@ -104,8 +102,6 @@ vector<string> AhoCorasick::search(string input){
 			s += input[index];
 
 			if (cur_state == -1) {
-				//s = "";
-				//cur_state = init_state;
 				break;
 			} else if(cur_state < init_state) {
 				if(check[s] != true && del.find(cur_state) == del.end()){
@@ -124,10 +120,17 @@ vector<string> AhoCorasick::search(string input){
 void AhoCorasick::deleteWord(string word){
 	int cur_state = this->init_state;
 
-	vector<string>::iterator position = find(this->words.begin(), this->words.end(), word);
+	for(vector<string>::iterator it = words.begin(); it != words.end(); it++){
+		if(*it == word) {
+			size_t index = distance(words.begin(), it);
+			del.insert(index);
+		}
+	}
+
+	/*vector<string>::iterator position = find(this->words.begin(), this->words.end(), word);
 	if (position != words.end()) {
 		size_t index = distance(words.begin(), position);
 		del.insert(index);
-	}
+	}*/
 }
 

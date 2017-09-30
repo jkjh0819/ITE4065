@@ -20,7 +20,6 @@ int main(){
     cin >> N;
     for (int i = 0; i < N; i++){
         cin >> buf;
-        //words.push_back(buf);
         patterNum++;
         patternLen += buf.length();
         word_list.insert(buf);
@@ -44,22 +43,7 @@ int main(){
                         words.clear();
                     }
                     vector<string> result = FSA.search(buf);
-                   /* multimap<size_t, string> result;
-                    for (set<string>::iterator it = word_list.begin();
-                            it != word_list.end(); it++){
-                        size_t pos = buf.find(*it);
-                        if (pos != string::npos){
-                            result.insert(make_pair(pos, *it));
-                        }
-                    }
-                    multimap<size_t, string>::iterator it = result.begin();
-                    for (int cnt = result.size(); cnt != 0; cnt--, it++){
-                        cout << it->second;
-                        if (cnt != 1){
-                            cout << "|";
-                        }
-                    }
-                    cout << std::endl;*/
+                   
                     vector<string>::iterator it = result.begin();
                     if(result.size() == 0){
                         cout << "-1" << newline;
@@ -77,7 +61,7 @@ int main(){
             case 'A':
                 if(word_list.find(buf) == word_list.end()){
                     words.push_back(buf);
-                    //word_list.insert(buf);
+                    word_list.insert(buf);
                 }
                 //word_list.insert(buf);
                 break;
