@@ -4,6 +4,8 @@
 #include <set>
 #include <map>
 #include <thread>
+#include <functional>
+#include <mutex> 
 
 using namespace std;
 
@@ -29,6 +31,8 @@ public:
 	void deleteWord(string word);
 
 private:
+	mutex mtx;           // mutex for critical section
+
 	vector<vector<int> > graph;
 	vector<string> words;
 	//vector<string> result;

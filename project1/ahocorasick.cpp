@@ -19,7 +19,6 @@ AhoCorasick::AhoCorasick(int patternNum, int patternLen){
 }
 
 AhoCorasick::~AhoCorasick(){
-	cout << "destructor" << newline;
 }
 	
 void AhoCorasick::addWord(vector<string> word){
@@ -97,21 +96,23 @@ vector<string> AhoCorasick::search(string input){
 	int i,j;
 
 	//for(int start = 0; start < input.length();start++){
-	for(int start = 0; start < input.length();){
+	for(int start = 0; start < query.length();){
 		//이 부분이 스레드 화 되어야 함.
 		//각 길이별로 작업 큐에 들어가고, 그 작업큐가 끝나면 종료
 		//check가 <int, vector<string> >이 되고 ...
 		//각 스레드에서 final state에 도달하면 check[start_pos].push_back(s)
 		//스레드 실행이 모두 끝나면 모든 check key에 대해 if(check[key].size()!= 0 ) => sort by length,
 		// result.push_back(value)
-		thread searchThreads[25];
+		vector<thread> searchThreads;
 
-		for(i = 0; i < 25 && start < input.length(); i++){
-			searchThreads[i] = thread(&AhoCorasick::searchThread, this ,start++);
+		for(i = 0; i < thread::hardware_concurrency()*2 + 1 && start < input.length(); i++){
+			searchThreads.push_back(thread(&AhoCorasick::searchThread, this ,start++));
 		}
 
-		for (j = 0; j < i ; j++){
-        	searchThreads[j].join();
+		for (j = 0; j < searchThreads.size() ; j++){
+			if(searchThreads[j].joinable()){
+        		searchThreads[j].join();
+			}
  		}
 
 		/*s = "";
@@ -133,6 +134,7 @@ vector<string> AhoCorasick::search(string input){
 				index++;
 			}
 		}*/
+		searchThreads.clear();
 	}
 
 	compare c;
@@ -154,6 +156,8 @@ vector<string> AhoCorasick::search(string input){
 }
 
 void AhoCorasick::searchThread(int start){
+	
+	
 	map<string,bool> check;
 	string s;
 	int cur_state = this->init_state;
@@ -176,7 +180,9 @@ void AhoCorasick::searchThread(int start){
 				break;
 			} else if(cur_state < this->init_state) {
 				if(check[s] != true && this->del.find(cur_state) == this->del.end()){
+					this->mtx.lock();
 					this->found[pos].push_back(s);
+					this->mtx.unlock();
 					check[s] = true;
 				}
 				index++;
@@ -185,7 +191,6 @@ void AhoCorasick::searchThread(int start){
 			}
 		}
 	}
-	//cout << start << " end" << newline;
 }
 
 
