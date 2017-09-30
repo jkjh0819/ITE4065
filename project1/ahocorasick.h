@@ -3,20 +3,11 @@
 #include <algorithm>
 #include <set>
 #include <map>
-#include <thread>
-#include <functional>
-#include <mutex> 
 
 using namespace std;
 
 #define newline '\n'
 #define MAX_ALPHA 26
-
-struct compare {
-    bool operator()(const std::string& first, const std::string& second) {
-        return first.size() < second.size();
-    }
-};
 
 class AhoCorasick {
 	
@@ -27,22 +18,16 @@ public:
 	void addWord(vector<string> word);
 	void makeGraph();
 	vector<string> search(string input);
-	void searchThread(int start);
 	void deleteWord(string word);
 
 private:
-	mutex mtx;           // mutex for critical section
-
 	vector<vector<int> > graph;
 	vector<string> words;
-	//vector<string> result;
+	vector<string> result;
 	set<int> del;
-	map<int, vector<string> > found;
-
 	int init_state;
 	int patternNum;
 	int state_num;
 	int cur_size;
 	int patternLen;
-	string query;
 };

@@ -19,9 +19,11 @@ AhoCorasick::AhoCorasick(int patternNum, int patternLen){
 }
 
 AhoCorasick::~AhoCorasick(){
+
 }
 	
 void AhoCorasick::addWord(vector<string> word){
+
 	for(vector<string>::iterator it = word.begin(); it != word.end(); it++){
 			this->words.push_back(*it);
 			this->patternLen += it->length();
@@ -85,40 +87,17 @@ vector<string> AhoCorasick::search(string input){
 	for (auto w : words)
     	check.emplace(w, false);
 
-	//int cur_state = this->init_state;
-	//string s = "";
-	vector<string> result;
-	this->query = input;
+	int cur_state = this->init_state;
+	
+	string s = "";
 
-	found.clear();
-	//result.clear();
+	result.clear();
 
-	int i,j;
-
-	//for(int start = 0; start < input.length();start++){
-	for(int start = 0; start < query.length();){
-		//이 부분이 스레드 화 되어야 함.
-		//각 길이별로 작업 큐에 들어가고, 그 작업큐가 끝나면 종료
-		//check가 <int, vector<string> >이 되고 ...
-		//각 스레드에서 final state에 도달하면 check[start_pos].push_back(s)
-		//스레드 실행이 모두 끝나면 모든 check key에 대해 if(check[key].size()!= 0 ) => sort by length,
-		// result.push_back(value)
-		vector<thread> searchThreads;
-
-		for(i = 0; i < thread::hardware_concurrency()*2 + 1 && start < input.length(); i++){
-			searchThreads.push_back(thread(&AhoCorasick::searchThread, this ,start++));
-		}
-
-		for (j = 0; j < searchThreads.size() ; j++){
-			if(searchThreads[j].joinable()){
-        		searchThreads[j].join();
-			}
- 		}
-
-		/*s = "";
+	for(int start = 0; start < input.length();start++){
+		s = "";
 		cur_state = init_state;
 
-		for(int index = start; index < query.length();){
+		for(int index = start; index < input.length();){
 			cur_state = graph[cur_state][input[index] - 'a'];
 			s += input[index];
 
@@ -133,67 +112,11 @@ vector<string> AhoCorasick::search(string input){
 			} else {
 				index++;
 			}
-		}*/
-		searchThreads.clear();
-	}
-
-	compare c;
-
-	for(auto f : found){
-		if(f.second.size() != 0){
-			sort(f.second.begin(), f.second.end(), c);
-			for(auto w : f.second){
-				if(!check[w]) {
-					result.push_back(w);
-					check[w] = true;
-				}
-			}
 		}
 	}
-
-	//return this->result;
-	return result;
+	return this->result;
 }
-
-void AhoCorasick::searchThread(int start){
 	
-	
-	map<string,bool> check;
-	string s;
-	int cur_state = this->init_state;
-
-	/*for(vector<string>::iterator it = this->words.begin(); it != this->words.end(); it++){
-		check.emplace(*it, false);
-	}*/
-	for (auto w : this->words)
-    	check.emplace(w, false);
-
-	for(int pos = start; pos < this->query.length(); pos++){
-		s = "";
-		cur_state = this->init_state;
-
-		for(int index = pos; index < this->query.length();){
-			cur_state = this->graph[cur_state][this->query[index] - 'a'];
-			s += this->query[index];
-
-			if (cur_state == -1) {
-				break;
-			} else if(cur_state < this->init_state) {
-				if(check[s] != true && this->del.find(cur_state) == this->del.end()){
-					this->mtx.lock();
-					this->found[pos].push_back(s);
-					this->mtx.unlock();
-					check[s] = true;
-				}
-				index++;
-			} else {
-				index++;
-			}
-		}
-	}
-}
-
-
 void AhoCorasick::deleteWord(string word){
 	int cur_state = this->init_state;
 
