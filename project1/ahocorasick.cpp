@@ -76,7 +76,9 @@ void AhoCorasick::makeGraph(){
 			}
 			index++;
 		}
-	}	
+	}
+
+	
 }
 
 vector<string> AhoCorasick::search(string input){
@@ -85,67 +87,25 @@ vector<string> AhoCorasick::search(string input){
 	for (auto w : words)
     	check.emplace(w, false);
 
-    this->query = input;
-
-	found.clear();
-	result.clear();
-
-	boost::asio::io_service io;
-	boost::thread_group threads;
-	boost::asio::io_service::work work(io);
-
-	for (int i = 0; i < boost::thread::hardware_concurrency() ; ++i)
-		{
-			threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
-		}
-
-	for(int start = 0; start < input.length();start++){
-		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
-	}
-
-	io.stop();
-
-	threads.join_all();
-
-	compare c;
-	for(auto f : found){
-		if(f.second.size() != 0){
-			sort(f.second.begin(), f.second.end(), c);
-			for(auto w : f.second){
-				if(!check[w]) {
-					result.push_back(w);
-					check[w] = true;
-				}
-			}
-		}
-	}
-	return this->result;
-}
-
-void AhoCorasick::searchThread(int start){
-	map<string,bool> check;
-
 	int cur_state = this->init_state;
+	
 	string s = "";
 
-	for (auto w : words)
-    	check.emplace(w, false);
+	result.clear();
 
-	for(int pos = start; pos < this->query.length();pos++){
+	for(int start = 0; start < input.length();start++){
 		s = "";
-		cur_state = this->init_state;
+		cur_state = init_state;
 
-		for(int index = pos; index < this->query.length();){
-			cur_state = this->graph[cur_state][this->query[index] - 'a'];
-			s += this->query[index];
+		for(int index = start; index < input.length();){
+			cur_state = graph[cur_state][input[index] - 'a'];
+			s += input[index];
 
 			if (cur_state == -1) {
 				break;
-			} else if(cur_state < this->init_state) {
-				if(check[s] != true && this->del.find(cur_state) == this->del.end()){
-					mtx.lock();
-					this->found[pos].push_back(s);
-					mtx.unlock();
+			} else if(cur_state < init_state) {
+				if(check[s] != true && del.find(cur_state) == del.end()){
+					result.push_back(s);
 					check[s] = true;
 				}
 				index++;
@@ -154,8 +114,8 @@ void AhoCorasick::searchThread(int start){
 			}
 		}
 	}
+	return this->result;
 }
-
 	
 void AhoCorasick::deleteWord(string word){
 	int cur_state = this->init_state;

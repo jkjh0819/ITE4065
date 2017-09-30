@@ -8,11 +8,11 @@ using namespace std;
 
 int main(){
     int N;
-    set<string> word_list;  
+    set<string> word_list;  //init words
     char cmd;
     string buf;
-    //AhoCorasick FSA;
-    vector<string> words;
+    AhoCorasick FSA;
+    vector<string> words;  //temporary buffer
     int patterNum = 0, patternLen = 0;
 
     std::ios::sync_with_stdio(false);
@@ -26,7 +26,7 @@ int main(){
     }
 
     words = vector<string>(word_list.begin(), word_list.end());
-    AhoCorasick FSA(patterNum, patternLen);
+    FSA = AhoCorasick(patterNum, patternLen);
     FSA.addWord(words);
     words.clear();
 
