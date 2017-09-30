@@ -22,16 +22,22 @@ AhoCorasick::~AhoCorasick(){
 
 }
 	
-void AhoCorasick::addWord(set<string> word){
+void AhoCorasick::addWord(vector<string> word){
 	//bool somethingAdded = false;
+	vector<string>::iterator position;
 
-	for(auto w : del)
-		this->words.erase(w);
-
+	for(auto w : del) {
+		position = find(this->words.begin(), this->words.end(), w);
+		if (position != words.end()) {
+	    	this->words.erase(position);
+	    	this->patternNum--;
+	    }
+	}
+		
 	del.clear();
 
-	for(set<string>::iterator it = word.begin(); it != word.end(); it++){
-			this->words.insert(*it);
+	for(vector<string>::iterator it = word.begin(); it != word.end(); it++){
+			this->words.push_back(*it);
 			this->patternLen += it->length();
 			//this->patternNum++;
 	}
@@ -56,7 +62,7 @@ void AhoCorasick::makeGraph(){
     		fill(row.begin(), row.end(), -1);
 	}
 
-	for(set<string>::iterator it = words.begin(); it != words.end(); it++){
+	for(vector<string>::iterator it = words.begin(); it != words.end(); it++){
 		int index;
 		string cur_word = *it;
 		

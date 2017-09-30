@@ -12,18 +12,18 @@ int main(){
     char cmd;
     string buf;
     AhoCorasick FSA;
-    //vector<string> words;  //temporary buffer
-    set<string> words;
+    vector<string> words;  //temporary buffer
+    //set<string> words;
     int patterNum = 0, patternLen = 0;
     bool added = false;
-    bool deleted = false;
+    //bool deleted = false;
 
     std::ios::sync_with_stdio(false);
 
     cin >> N;
     for (int i = 0; i < N; i++){
         cin >> buf;
-        //words.push_back(buf);
+        words.push_back(buf);
         patterNum++;
         patternLen += buf.length();
         word_list.insert(buf);
@@ -31,8 +31,8 @@ int main(){
 
     //words = vector<string>(word_list.begin(), word_list.end());
     FSA = AhoCorasick(patterNum, patternLen);
-    FSA.addWord(word_list);
-    //words.clear();
+    FSA.addWord(words);
+    words.clear();
     //FSA.makeGraph(word_list, patternLen);
 
     cout << "R" << std::endl;
@@ -53,22 +53,7 @@ int main(){
                     } 
 
                     vector<string> result = FSA.search(buf);
-                   /* multimap<size_t, string> result;
-                    for (set<string>::iterator it = word_list.begin();
-                            it != word_list.end(); it++){
-                        size_t pos = buf.find(*it);
-                        if (pos != string::npos){
-                            result.insert(make_pair(pos, *it));
-                        }
-                    }
-                    multimap<size_t, string>::iterator it = result.begin();
-                    for (int cnt = result.size(); cnt != 0; cnt--, it++){
-                        cout << it->second;
-                        if (cnt != 1){
-                            cout << "|";
-                        }
-                    }
-                    cout << std::endl;*/
+                   
                     vector<string>::iterator it = result.begin();
                     if(result.size() == 0){
                         cout << "-1" << newline;
@@ -88,7 +73,7 @@ int main(){
                     words.push_back(buf);
                 }*/
                 if(word_list.insert(buf).second){
-                    words.insert(buf);
+                    words.push_back(buf);
                     //patternLen += buf.size();
                     added = true;
                 }
@@ -99,7 +84,7 @@ int main(){
                 if(word_list.erase(buf)){
                     patternLen -= buf.size();
                     FSA.deleteWord(buf);
-                    deleted = true;
+                    //deleted = true;
                 }
 
                 //word_list.erase(buf);

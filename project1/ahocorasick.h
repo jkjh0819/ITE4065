@@ -15,7 +15,7 @@ public:
 	AhoCorasick();
 	AhoCorasick(int patternNum, int patternLen);
 	~AhoCorasick();
-	void addWord(set<string> word);
+	void addWord(vector<string> word);
 	void makeGraph();
 	//void makeGraph(set<string>& word_list, int patternLen);
 	vector<string> search(string input);
@@ -23,8 +23,8 @@ public:
 
 private:
 	vector<vector<int> > graph;
-	//vector<string> words;
-	set<string> words;
+	vector<string> words;
+	//set<string> words;
 	vector<string> result;
 	set<string> del;
 	int init_state;
