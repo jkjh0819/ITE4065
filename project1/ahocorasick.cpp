@@ -87,25 +87,67 @@ vector<string> AhoCorasick::search(string input){
 	for (auto w : words)
     	check.emplace(w, false);
 
-	int cur_state = this->init_state;
-	
-	string s = "";
+    this->query = input;
 
 	result.clear();
 
-	for(int start = 0; start < input.length();start++){
-		s = "";
-		cur_state = init_state;
+	boost::asio::io_service io;
+	boost::thread_group threads;
+	boost::asio::io_service::work work(io);
 
-		for(int index = start; index < input.length();){
-			cur_state = graph[cur_state][input[index] - 'a'];
-			s += input[index];
+	for (int i = 0; i < boost::thread::hardware_concurrency() ; ++i)
+		{
+			threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
+		}
+
+	vector<boost::shared_future<int> > job_queue;
+
+	for(int start = 0; start < input.length();start++){
+		//push_job(start, io, job_queue);
+		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
+	}
+
+	io.stop();
+
+	threads.join_all();
+
+	compare c;
+	for(auto f : found){
+		if(f.second.size() != 0){
+			sort(f.second.begin(), f.second.end(), c);
+			for(auto w : f.second){
+				if(!check[w]) {
+					result.push_back(w);
+					check[w] = true;
+				}
+			}
+		}
+	}
+	return this->result;
+}
+
+void AhoCorasick::searchThread(int start){
+	map<string,bool> check;
+
+	int cur_state = this->init_state;
+	string s = "";
+
+	for (auto w : words)
+    	check.emplace(w, false);
+
+	for(int pos = start; pos < this->query.length();pos++){
+		s = "";
+		cur_state = this->init_state;
+
+		for(int index = pos; index < this->query.length();){
+			cur_state = graph[cur_state][this->query[index] - 'a'];
+			s += this->query[index];
 
 			if (cur_state == -1) {
 				break;
-			} else if(cur_state < init_state) {
-				if(check[s] != true && del.find(cur_state) == del.end()){
-					result.push_back(s);
+			} else if(cur_state < this->init_state) {
+				if(check[s] != true && this->del.find(cur_state) == this->del.end()){
+					this->found[pos].push_back(s);
 					check[s] = true;
 				}
 				index++;
@@ -114,8 +156,8 @@ vector<string> AhoCorasick::search(string input){
 			}
 		}
 	}
-	return this->result;
 }
+
 	
 void AhoCorasick::deleteWord(string word){
 	int cur_state = this->init_state;
@@ -126,11 +168,5 @@ void AhoCorasick::deleteWord(string word){
 			del.insert(index);
 		}
 	}
-
-	/*vector<string>::iterator position = find(this->words.begin(), this->words.end(), word);
-	if (position != words.end()) {
-		size_t index = distance(words.begin(), position);
-		del.insert(index);
-	}*/
 }
 

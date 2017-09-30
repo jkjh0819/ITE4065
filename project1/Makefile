@@ -3,7 +3,7 @@ CFLAGS=-g -O3 --std=c++11
 OBJECTS = ref_solution.o ahocorasick.o
 
 run: $(OBJECTS)
-	$(CC) $(CFLAGS) $^ -o $@ -lpthread
+	$(CC) $(CFLAGS) $^ -o $@ -lpthread -lboost_system-mt -lboost_thread
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $^ -o $@

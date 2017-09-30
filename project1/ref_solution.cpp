@@ -8,11 +8,11 @@ using namespace std;
 
 int main(){
     int N;
-    set<string> word_list;  //current words
+    set<string> word_list;  
     char cmd;
     string buf;
     AhoCorasick FSA;
-    vector<string> words;  //temporary buffer
+    vector<string> words;
     int patterNum = 0, patternLen = 0;
 
     std::ios::sync_with_stdio(false);
@@ -63,7 +63,6 @@ int main(){
                     words.push_back(buf);
                     word_list.insert(buf);
                 }
-                //word_list.insert(buf);
                 break;
             case 'D':
                 FSA.deleteWord(buf);
