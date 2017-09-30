@@ -14,7 +14,8 @@ int main(){
     AhoCorasick FSA;
     //vector<string> words;  //temporary buffer
     int patterNum = 0, patternLen = 0;
-    bool changed = false;
+    bool added = false;
+    bool deleted = false;
 
     std::ios::sync_with_stdio(false);
 
@@ -45,9 +46,9 @@ int main(){
                         FSA.addWord(words);
                         words.clear();
                     }*/
-                    if(changed){
+                    if(added){
                         FSA.makeGraph(word_list, patternLen);
-                    }
+                    } 
 
                     vector<string> result = FSA.search(buf);
                    /* multimap<size_t, string> result;
@@ -86,7 +87,7 @@ int main(){
                 }*/
                 if(word_list.insert(buf).second){
                     patternLen += buf.size();
-                    changed = true;
+                    added = true;
                 }
                 //word_list.insert(buf);
                 break;
@@ -94,7 +95,8 @@ int main(){
                 //FSA.deleteWord(buf);
                 if(word_list.erase(buf)){
                     patternLen -= buf.size();
-                    changed = true;
+                    FSA.deleteWord(buf);
+                    deleted = true;
                 }
 
                 //word_list.erase(buf);

@@ -19,14 +19,14 @@ public:
 	//void makeGraph();
 	void makeGraph(set<string> word_list, int patternLen);
 	vector<string> search(string input);
-	//void deleteWord(string word);
+	void deleteWord(string word);
 
 private:
 	vector<vector<int> > graph;
 	//vector<string> words;
 	set<string> words;
 	vector<string> result;
-	set<int> del;
+	set<string> del;
 	int init_state;
 	int patternNum;
 	int state_num;
