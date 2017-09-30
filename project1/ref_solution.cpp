@@ -11,7 +11,7 @@ int main(){
     set<string> word_list;  
     char cmd;
     string buf;
-    AhoCorasick FSA;
+    //AhoCorasick FSA;
     vector<string> words;
     int patterNum = 0, patternLen = 0;
 
@@ -26,7 +26,7 @@ int main(){
     }
 
     words = vector<string>(word_list.begin(), word_list.end());
-    FSA = AhoCorasick(patterNum, patternLen);
+    AhoCorasick FSA(patterNum, patternLen);
     FSA.addWord(words);
     words.clear();
 

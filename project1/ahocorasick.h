@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <mutex>
 
 
 #include <boost/shared_ptr.hpp>
@@ -41,6 +42,8 @@ public:
 	void deleteWord(string word);
 
 private:
+	mutex mtx;
+	
 	vector<vector<int> > graph;
 	vector<string> words;
 	vector<string> result;

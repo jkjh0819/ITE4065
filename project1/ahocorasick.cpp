@@ -76,9 +76,7 @@ void AhoCorasick::makeGraph(){
 			}
 			index++;
 		}
-	}
-
-	
+	}	
 }
 
 vector<string> AhoCorasick::search(string input){
@@ -89,6 +87,7 @@ vector<string> AhoCorasick::search(string input){
 
     this->query = input;
 
+	found.clear();
 	result.clear();
 
 	boost::asio::io_service io;
@@ -100,10 +99,7 @@ vector<string> AhoCorasick::search(string input){
 			threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
 		}
 
-	vector<boost::shared_future<int> > job_queue;
-
 	for(int start = 0; start < input.length();start++){
-		//push_job(start, io, job_queue);
 		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
 	}
 
@@ -140,14 +136,16 @@ void AhoCorasick::searchThread(int start){
 		cur_state = this->init_state;
 
 		for(int index = pos; index < this->query.length();){
-			cur_state = graph[cur_state][this->query[index] - 'a'];
+			cur_state = this->graph[cur_state][this->query[index] - 'a'];
 			s += this->query[index];
 
 			if (cur_state == -1) {
 				break;
 			} else if(cur_state < this->init_state) {
 				if(check[s] != true && this->del.find(cur_state) == this->del.end()){
+					mtx.lock();
 					this->found[pos].push_back(s);
+					mtx.unlock();
 					check[s] = true;
 				}
 				index++;
