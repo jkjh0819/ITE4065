@@ -23,7 +23,7 @@ AhoCorasick::~AhoCorasick(){
 }
 	
 void AhoCorasick::addWord(vector<string> word){
-	bool somethingAdded = false;
+	//bool somethingAdded = false;
 
 	for(vector<string>::iterator it = word.begin(); it != word.end(); it++){
 			this->words.push_back(*it);
@@ -108,7 +108,7 @@ vector<string> AhoCorasick::search(string input){
 				//cur_state = init_state;
 				break;
 			} else if(cur_state < init_state) {
-				if(del.find(cur_state) == del.end() && check[s] != true){
+				if(check[s] != true && del.find(cur_state) == del.end()){
 					result.push_back(s);
 					check[s] = true;
 				}
@@ -128,8 +128,6 @@ void AhoCorasick::deleteWord(string word){
 	if (position != words.end()) {
 		size_t index = distance(words.begin(), position);
 		del.insert(index);
-    	//this->words.erase(position);
-    	//this->patternNum--;
 	}
 }
 
