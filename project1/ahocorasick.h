@@ -1,13 +1,24 @@
+#ifndef AHOCORASICK
+#define AHOCORAISCK
+
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <set>
 #include <map>
 
+#include "threadpool.h"
+
 using namespace std;
 
 #define newline '\n'
 #define MAX_ALPHA 26
+
+struct compare {
+	bool operator()(const std::string& first, const std::string& second) {
+		return first.size() < second.size();
+	}
+};
 
 class AhoCorasick {
 	
@@ -30,4 +41,13 @@ private:
 	int state_num;
 	int cur_size;
 	int patternLen;
+
+	map<string, int> found;
+	map<int, vector<string> > found_r;
+
+	string query;
+
+	ThreadPool * pool;
 };
+
+#endif
