@@ -53,4 +53,6 @@ private:
 	int patternLen;
 
 	string query;
+
+
 };

@@ -96,10 +96,12 @@ vector<string> AhoCorasick::search(string input){
 	boost::asio::io_service io;
 	boost::thread_group threads;
 	boost::asio::io_service::work work(io);
-	for (int i = 0; i < boost::thread::hardware_concurrency(); ++i)
+	//for (int i = 0; i < boost::thread::hardware_concurrency(); ++i)
+	for (int i = 0; i < 30; ++i)
 	{
 		threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
 	}
+	
 	for (int start = 0; start < input.length(); start++) {
 		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
 	}
@@ -129,6 +131,7 @@ vector<string> AhoCorasick::search(string input){
 
 
 void AhoCorasick::searchThread(int start) {
+	cout << start << " : start" << newline;
 	int cur_state = this->init_state;
 	string s = "";
 	vector<pair<int, string> > find;
