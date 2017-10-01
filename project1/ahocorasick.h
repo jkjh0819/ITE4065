@@ -46,6 +46,9 @@ private:
 	set<int> del;
 	vector<vector<pair<int, string> > > finds;
 	map<int, vector<string> > found;
+	map<string, int> found2;
+	int count = 0;
+
 	int init_state;
 	int patternNum;
 	int state_num;

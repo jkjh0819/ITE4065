@@ -96,6 +96,13 @@ vector<string> AhoCorasick::search(string input){
 	found.clear();
 	finds.clear();
 	result.clear();
+	found2.clear();
+
+	this->count = 0;
+
+	for (auto w : words) {
+		found2.emplace(w, input.length());
+	}
 	
 	for (int start = 0; start < input.length(); start++) {
 		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
@@ -103,13 +110,12 @@ vector<string> AhoCorasick::search(string input){
 
 	//io.stop();
 	
-	while (finds.size() != input.length());
 	
-
-	for (auto f : finds) {
-		for (auto d : f) {
-			this->found[d.first].push_back(d.second);
-		}
+	while (count != input.length()) { this_thread::yield(); };
+	
+	for (auto f : found2) {
+		if(f.second != input.length())
+			found[f.second].push_back(f.first);
 	}
 
 	compare c;
@@ -129,6 +135,8 @@ vector<string> AhoCorasick::search(string input){
 
 
 void AhoCorasick::searchThread(int start) {
+	//cout << start << " : start" << newline;
+
 	int cur_state = this->init_state;
 	string s = "";
 	vector<pair<int, string> > find;
@@ -143,8 +151,10 @@ void AhoCorasick::searchThread(int start) {
 				break;
 			}
 			else if (cur_state < this->init_state) {
-				if (this->del.find(cur_state) == this->del.end()) {
-					find.push_back(make_pair(pos, s));
+				if (this->found2[s] > pos && this->del.find(cur_state) == this->del.end()) {
+					mtx.lock();
+					found2[s] = pos;
+					mtx.unlock();
 				}
 				index++;
 			}
@@ -154,7 +164,7 @@ void AhoCorasick::searchThread(int start) {
 		}
 	}
 	mtx.lock();
-	finds.push_back(find);
+	this->count++;
 	mtx.unlock();
 }
 
