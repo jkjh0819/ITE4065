@@ -87,6 +87,7 @@ vector<string> AhoCorasick::search(string input){
 	map<string, bool> check;
 	for (auto w : words)
 		check.emplace(w, false);
+
 	this->query = input;
 	found.clear();
 	finds.clear();
@@ -128,13 +129,10 @@ vector<string> AhoCorasick::search(string input){
 
 
 void AhoCorasick::searchThread(int start) {
-	map<string, bool> check;
 	int cur_state = this->init_state;
 	string s = "";
 	vector<pair<int, string> > find;
 
-	for (auto w : words)
-		check.emplace(w, false);
 	for (int pos = start; pos < this->query.length(); pos++) {
 		s = "";
 		cur_state = this->init_state;
@@ -145,9 +143,8 @@ void AhoCorasick::searchThread(int start) {
 				break;
 			}
 			else if (cur_state < this->init_state) {
-				if (check[s] != true && this->del.find(cur_state) == this->del.end()) {
+				if (this->del.find(cur_state) == this->del.end()) {
 					find.push_back(make_pair(pos, s));
-					check[s] = true;
 				}
 				index++;
 			}
