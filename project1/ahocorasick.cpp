@@ -17,7 +17,11 @@ AhoCorasick::AhoCorasick(int patternNum, int patternLen){
 	this->cur_size = patternNum + patternLen * 2 + 1;
 	this->patternLen = 0;
 
-	
+	work = new boost::asio::io_service::work(io);
+	for (int i = 0; i < boost::thread::hardware_concurrency(); ++i)
+	{
+		threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
+	}
 }
 
 AhoCorasick::~AhoCorasick(){
@@ -92,20 +96,15 @@ vector<string> AhoCorasick::search(string input){
 	found.clear();
 	finds.clear();
 	result.clear();
-
-	boost::asio::io_service io;
-	boost::thread_group threads;
-	boost::asio::io_service::work work(io);
-	for (int i = 0; i < boost::thread::hardware_concurrency(); ++i)
-	{
-		threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
-	}
 	
 	for (int start = 0; start < input.length(); start++) {
 		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
 	}
-	io.stop();
-	threads.join_all();
+
+	//io.stop();
+	
+	while (finds.size() != input.length());
+	
 
 	for (auto f : finds) {
 		for (auto d : f) {
@@ -130,7 +129,6 @@ vector<string> AhoCorasick::search(string input){
 
 
 void AhoCorasick::searchThread(int start) {
-	cout << start << " : start" << newline;
 	int cur_state = this->init_state;
 	string s = "";
 	vector<pair<int, string> > find;

@@ -54,5 +54,8 @@ private:
 
 	string query;
 
+	boost::asio::io_service io;
+	boost::thread_group threads;
+	boost::asio::io_service::work *work;
 
 };
