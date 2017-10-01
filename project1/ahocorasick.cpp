@@ -16,8 +16,6 @@ AhoCorasick::AhoCorasick(int patternNum, int patternLen){
 	this->state_num = 1;
 	this->cur_size = patternNum + patternLen * 2 + 1;
 	this->patternLen = 0;
-
-	pool = new ThreadPool(thread::hardware_concurrency());
 }
 
 AhoCorasick::~AhoCorasick(){
@@ -89,61 +87,33 @@ vector<string> AhoCorasick::search(string input){
 	for (auto w : words)
     	check.emplace(w, false);
 
-	result.clear();
-	found.clear();
-	found_r.clear();
-
-	for (auto w : words)
-		found.emplace(w, input.length());
+	int cur_state = this->init_state;
 	
-	this->query = input;
+	string s = "";
+
+	result.clear();
 
 	for(int start = 0; start < input.length();start++){
+		s = "";
+		cur_state = init_state;
 
-		pool->add([this](int start) {
-			string s = "";
-			int cur_state = this->init_state;
+		for(int index = start; index < input.length();){
+			cur_state = graph[cur_state][input[index] - 'a'];
+			s += input[index];
 
-			for (int index = start; index < this->query.length();) {
-				cur_state = graph[cur_state][this->query[index] - 'a'];
-				s += this->query[index];
-
-				if (cur_state == -1) {
-					break;
+			if (cur_state == -1) {
+				break;
+			} else if(cur_state < init_state) {
+				if(check[s] != true && del.find(cur_state) == del.end()){
+					result.push_back(s);
+					check[s] = true;
 				}
-				else if (cur_state < init_state) {
-					if (this->found[s] > index && del.find(cur_state) == del.end()) {
-						m.lock();
-						found[s] = index;
-						m.unlock();
-					}
-					index++;
-				}
-				else {
-					index++;
-				}
-			}
-		}, start);
-	}
-
-	for (auto f : found) {
-		if (f.second != input.length())
-			found_r[f.second].push_back(f.first);
-	}
-
-	compare c;
-	for (auto f : found_r) {
-		if (f.second.size() != 0) {
-			sort(f.second.begin(), f.second.end(), c);
-			for (auto w : f.second) {
-				if (!check[w]) {
-					result.push_back(w);
-					check[w] = true;
-				}
+				index++;
+			} else {
+				index++;
 			}
 		}
 	}
-
 	return this->result;
 }
 	

@@ -1,25 +1,13 @@
-#ifndef AHOCORASICK
-#define AHOCORAISCK
-
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <set>
 #include <map>
-#include <mutex>
-
-#include "threadpool.h"
 
 using namespace std;
 
 #define newline '\n'
 #define MAX_ALPHA 26
-
-struct compare {
-	bool operator()(const std::string& first, const std::string& second) {
-		return first.size() < second.size();
-	}
-};
 
 class AhoCorasick {
 	
@@ -33,8 +21,6 @@ public:
 	void deleteWord(string word);
 
 private:
-	mutex m;
-
 	vector<vector<int> > graph;
 	vector<string> words;
 	vector<string> result;
@@ -44,13 +30,4 @@ private:
 	int state_num;
 	int cur_size;
 	int patternLen;
-
-	map<string, int> found;
-	map<int, vector<string> > found_r;
-
-	string query;
-
-	ThreadPool * pool;
 };
-
-#endif
