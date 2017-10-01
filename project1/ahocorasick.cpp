@@ -16,12 +16,6 @@ AhoCorasick::AhoCorasick(int patternNum, int patternLen){
 	this->state_num = 1;
 	this->cur_size = patternNum + patternLen * 2 + 1;
 	this->patternLen = 0;
-
-	work = new boost::asio::io_service::work(io);
-	for (int i = 0; i < boost::thread::hardware_concurrency(); ++i)
-	{
-		threads.create_thread(boost::bind(&boost::asio::io_service::run, &io));
-	}
 }
 
 AhoCorasick::~AhoCorasick(){
@@ -88,87 +82,41 @@ void AhoCorasick::makeGraph(){
 }
 
 vector<string> AhoCorasick::search(string input){
-	map<string, bool> check;
+	map<string,bool> check;
+
 	for (auto w : words)
-		check.emplace(w, false);
+    	check.emplace(w, false);
 
-	this->query = input;
-	found.clear();
-	finds.clear();
+	int cur_state = this->init_state;
+	
+	string s = "";
+
 	result.clear();
-	found2.clear();
 
-	this->count = 0;
+	for(int start = 0; start < input.length();start++){
+		s = "";
+		cur_state = init_state;
 
-	for (auto w : words) {
-		found2.emplace(w, input.length());
-	}
-	
-	for (int start = 0; start < input.length(); start++) {
-		io.post(boost::bind(&AhoCorasick::searchThread, this, start));
-	}
+		for(int index = start; index < input.length();){
+			cur_state = graph[cur_state][input[index] - 'a'];
+			s += input[index];
 
-	//io.stop();
-	
-	
-	while (count != input.length()) { this_thread::yield(); };
-	
-	for (auto f : found2) {
-		if(f.second != input.length())
-			found[f.second].push_back(f.first);
-	}
-
-	compare c;
-	for (auto f : found) {
-		if (f.second.size() != 0) {
-			sort(f.second.begin(), f.second.end(), c);
-			for (auto w : f.second) {
-				if (!check[w]) {
-					result.push_back(w);
-					check[w] = true;
+			if (cur_state == -1) {
+				break;
+			} else if(cur_state < init_state) {
+				if(check[s] != true && del.find(cur_state) == del.end()){
+					result.push_back(s);
+					check[s] = true;
 				}
+				index++;
+			} else {
+				index++;
 			}
 		}
 	}
 	return this->result;
 }
-
-
-void AhoCorasick::searchThread(int start) {
-	//cout << start << " : start" << newline;
-
-	int cur_state = this->init_state;
-	string s = "";
-	vector<pair<int, string> > find;
-
-	for (int pos = start; pos < this->query.length(); pos++) {
-		s = "";
-		cur_state = this->init_state;
-		for (int index = pos; index < this->query.length();) {
-			cur_state = this->graph[cur_state][this->query[index] - 'a'];
-			s += this->query[index];
-			if (cur_state == -1) {
-				break;
-			}
-			else if (cur_state < this->init_state) {
-				if (this->found2[s] > pos && this->del.find(cur_state) == this->del.end()) {
-					mtx.lock();
-					found2[s] = pos;
-					mtx.unlock();
-				}
-				index++;
-			}
-			else {
-				index++;
-			}
-		}
-	}
-	mtx.lock();
-	this->count++;
-	mtx.unlock();
-}
-
-
+	
 void AhoCorasick::deleteWord(string word){
 	int cur_state = this->init_state;
 

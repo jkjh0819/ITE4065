@@ -3,28 +3,11 @@
 #include <algorithm>
 #include <set>
 #include <map>
-#include <mutex>
-#include <thread>
-
-
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
-#include <boost/asio.hpp>
-#include <boost/move/move.hpp>
 
 using namespace std;
 
 #define newline '\n'
 #define MAX_ALPHA 26
-
-
-struct compare {
-	bool operator()(const std::string& first, const std::string& second) {
-		return first.size() < second.size();
-	}
-};
 
 class AhoCorasick {
 	
@@ -35,31 +18,16 @@ public:
 	void addWord(vector<string> word);
 	void makeGraph();
 	vector<string> search(string input);
-	void searchThread(int start);
 	void deleteWord(string word);
 
 private:
-	mutex mtx;
-
 	vector<vector<int> > graph;
 	vector<string> words;
 	vector<string> result;
 	set<int> del;
-	vector<vector<pair<int, string> > > finds;
-	map<int, vector<string> > found;
-	map<string, int> found2;
-	int count = 0;
-
 	int init_state;
 	int patternNum;
 	int state_num;
 	int cur_size;
 	int patternLen;
-
-	string query;
-
-	boost::asio::io_service io;
-	boost::thread_group threads;
-	boost::asio::io_service::work *work;
-
 };
