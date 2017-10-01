@@ -91,6 +91,7 @@ vector<string> AhoCorasick::search(string input){
 
 	result.clear();
 	found.clear();
+	found_r.clear();
 
 	for (auto w : words)
 		found.emplace(w, input.length());
