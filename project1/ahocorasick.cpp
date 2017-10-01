@@ -113,7 +113,9 @@ vector<string> AhoCorasick::search(string input){
 				}
 				else if (cur_state < init_state) {
 					if (this->found[s] > index && del.find(cur_state) == del.end()) {
+						m.lock();
 						found[s] = index;
+						m.unlock();
 					}
 					index++;
 				}

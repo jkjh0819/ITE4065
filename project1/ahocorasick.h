@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <mutex>
 
 #include "threadpool.h"
 
@@ -32,6 +33,8 @@ public:
 	void deleteWord(string word);
 
 private:
+	mutex m;
+
 	vector<vector<int> > graph;
 	vector<string> words;
 	vector<string> result;
