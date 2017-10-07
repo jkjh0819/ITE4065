@@ -8,11 +8,18 @@ using namespace std;
 
 int main(){
     int N;
-    set<string> word_list;  //init words
+
+    //init words, sync with latest word status
+    set<string> word_list; 
+
     char cmd;
     string buf;
     AhoCorasick FSA;
-    vector<string> words;  //temporary buffer
+
+    //buffer, use for update word
+    vector<string> words;  
+
+    //for initialize FSA
     int patterNum = 0, patternLen = 0;
 
     std::ios::sync_with_stdio(false);
@@ -25,6 +32,7 @@ int main(){
         word_list.insert(buf);
     }
 
+    //make initial FSA
     words = vector<string>(word_list.begin(), word_list.end());
     FSA = AhoCorasick(patterNum, patternLen);
     FSA.addWord(words);
@@ -38,6 +46,7 @@ int main(){
         switch(cmd){
             case 'Q':
                 {
+                    //if some word added, add to FSA
                     if(!words.empty()){
                         FSA.addWord(words);
                         words.clear();
@@ -59,12 +68,16 @@ int main(){
                 }
                 break;
             case 'A':
+
+                //if new word not in current word, add it
                 if(word_list.find(buf) == word_list.end()){
                     words.push_back(buf);
                     word_list.insert(buf);
                 }
                 break;
             case 'D':
+            
+                //delete word from FSA and current word list
                 FSA.deleteWord(buf);
                 word_list.erase(buf);
                 break;
