@@ -9,6 +9,7 @@
 #include <string>
 #include "monitor.h"
 #include "lockinfo.h"
+#include "random.h"
 
 using namespace std;
 

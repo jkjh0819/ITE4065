@@ -37,44 +37,41 @@ void Transaction::work(int tid){
 	//get global lock
 	global_mutex.lock();
 	req = {i, LockType::R, tid};
-	if(!monitor->deadlock_check(i, req)){
+	if(monitor->deadlock_check(req)){
+		undo(havingLocks);
 		global_mutex.unlock();
 		continue;
 	}
 	//lose global lock
 	global_mutex.unlock();
-
-	//get readerlock about i
-	monitor->get(req);
 	havingLocks.push_back(req);
 
 	//get global lock
 	global_mutex.lock();
 	req = {j, LockType::W1, tid};
-	if(!monitor->deadlock_check(j, req)){
+	if(monitor->deadlock_check(req)){
+		undo(havingLocks);
 		global_mutex.unlock();
 		continue;
 	}
 	//lose global lock
 	global_mutex.unlock();
-
-	monitor->get(req);
 	havingLocks.push_back(req);
 
 	///get global lock
 	global_mutex.lock();
 	req = {k, LockType::W2, tid};
-	if(!monitor->deadlock_check(j, req)){
+	if(monitor->deadlock_check(req)){
+		undo(havingLocks);
 		global_mutex.unlock();
 		continue;
 	}
 	//lose global lock
 	global_mutex.unlock();
-
-	monitor->get(req);
 	havingLocks.push_back(req);
 
-	//do something about i, j, k
+	for(LockInfo r : havingLocks)
+		monitor->getLock(r);
 
 	//get global lock
 	global_mutex.lock();
@@ -85,23 +82,30 @@ void Transaction::work(int tid){
 
 	//log add
 	if(cid <= max_global_execution_order){
+		monitor->operation(havingLocks);
+
 		outFile << cid << " " << i << " " << j << " " << k << " "
-					<< i_value << " " << j_value << " " << k_value << endl;
+					<< monitor->readRecord(i) << " " << monitor->readRecord(j) << " " << monitor->readRecord(k) << endl;
 	}
 	
+	for(LockInfo r : havingLocks)
+		monitor->releaseLock(r);
+
 	//lose global lock
 	global_mutex.unlock();
 
 	} while(global_execution_order < max_global_execution_order);
+
+	outFile.close();
 }
 
 void Transaction::undo(vector<LockInfo>& havings){
-	for(int i = 0; i < havings.size(); i++){
-
-	}
+	for(LockInfo r : havings)
+		monitor->deleteLock(r);
 }
 
 int Transaction::getCommitId(){
 	global_execution_order++;
 	return global_execution_order;
 }
+

@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <mutex>
-#include <queue>
+#include <vector>
 #include "rwlock.h"
 #include "lockinfo.h"
 
@@ -15,19 +15,35 @@ public:
 	Record(int _index) : index(_index), value(100) {};
 	~Record() {};
 
-	void readerLock(queue<LockInfo>& waitings, LockInfo req){
+	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockShared(waitings, req);
 	}
 
-	void writerLock(queue<LockInfo>& waitings, LockInfo req){
+	void getWriterLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockExclusive(waitings, req);
 	}
 
-	void set(int _value){
-		value = _value;
+	void releaseReaderLock(){
+		rwlock.unlockShared();
 	}
 
-	void release(queue<LockInfo>& waitings, LockInfo req){
+	void releaseWriterLock(){
+		rwlock.unlockExclusive();
+	}
+
+	int read(){
+		return value;
+	}
+
+	void add(int _value){
+		value += _value;
+	}
+
+	void sub(int _value){
+		value -= _value;
+	}
+
+	void release(vector<LockInfo>& waitings, LockInfo req){
 
 	}
 

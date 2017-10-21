@@ -3,10 +3,14 @@
 
 enum LockType { R, W1, W2 };
 
-typedef struct {
+struct LockInfo{
 	int index;
 	int type;
 	int tid;
-} LockInfo;
+
+	bool operator==(const LockInfo& a) const {
+		return (index == a.index && type == a.type && tid == a.tid);
+	}
+};
 
 #endif

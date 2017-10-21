@@ -3,7 +3,7 @@
 
 #include <mutex>
 #include <condition_variable>
-#include <queue>
+#include <vector>
 #include "lockinfo.h"
 #include <iostream>
 
@@ -15,7 +15,7 @@ public:
 	RWLock() : mtx(), reader(), writer(), numReader(0), writing(false) {};
 	~RWLock(){};
 
-	void lockExclusive(queue<LockInfo>& waitings, LockInfo req){
+	void lockExclusive(vector<LockInfo>& waitings, LockInfo req){
 		unique_lock<mutex> lock(mtx);
 		while(writing)
 			writer.wait(lock, [&]{ return checkQueue(waitings, req);});
@@ -32,7 +32,7 @@ public:
 		writer.notify_all();
 	}
 
-	void lockShared(queue<LockInfo>& waitings, LockInfo req){
+	void lockShared(vector<LockInfo>& waitings, LockInfo req){
 		unique_lock<mutex> lock(mtx);
 		while(writing)
 			writer.wait(lock, [&]{ return checkQueue(waitings, req);});
@@ -63,10 +63,10 @@ private:
 	int numReader;
 	bool writing;
 
-	bool checkQueue(queue<LockInfo>& waitings, LockInfo req){
+	bool checkQueue(vector<LockInfo>& waitings, LockInfo req){
 		LockInfo first = waitings.front();
 		cout << "first : " << first.type << endl;
-		if(req.tid == first.tid && req.type == first.type)
+		if(req == first)
 			return true;
 		return false;
 	}

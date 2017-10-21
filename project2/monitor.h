@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <queue>
+#include <stack>
+#include <algorithm>
 #include "lockinfo.h"
 #include "record.h"
 
@@ -15,20 +17,21 @@ public:
 	Monitor(int numThreads, int numRecords);
 	~Monitor();
 
-	int get(LockInfo req);
-	void set(int _value);
-	void release(LockInfo req);
+	int getLock(LockInfo req);
+	void deleteLock(LockInfo req);
+	void releaseLock(LockInfo req);
 
 	//return true -> deadlock, return false -> not deadlock
-	bool deadlock_check(int record, LockInfo request);
-	LockInfo getFirstReq(int record);
+	bool deadlock_check(LockInfo req);
+	int readRecord(int index);
+	void operation(vector<LockInfo> req);
 
 private:
 	//thread status table
 	vector<vector<int> > threads_info;
 	
 	//thread request queue
-	vector<queue<LockInfo> > lock_request;
+	vector<vector<LockInfo> > lock_request;
 
 	Record ** records;
 };
