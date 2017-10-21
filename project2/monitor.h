@@ -18,6 +18,7 @@ public:
 	~Monitor();
 
 	void getLock(LockInfo req);
+	void cancelLock(LockInfo req);
 	void deleteLock(LockInfo req);
 	void releaseLock(LockInfo req);
 
@@ -25,6 +26,8 @@ public:
 	bool deadlock_check(LockInfo req);
 	int readRecord(int index);
 	void operation(vector<LockInfo> req);
+
+	void printRecordQueue();
 
 private:
 	//thread status table

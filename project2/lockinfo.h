@@ -7,6 +7,7 @@ struct LockInfo{
 	int index;
 	int type;
 	int tid;
+	bool getLock;
 
 	bool operator==(const LockInfo& a) const {
 		return (index == a.index && type == a.type && tid == a.tid);

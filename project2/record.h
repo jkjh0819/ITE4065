@@ -7,6 +7,9 @@
 #include "rwlock.h"
 #include "lockinfo.h"
 
+
+static mutex logMtx;
+
 using namespace std;
 
 class Record {
@@ -22,34 +25,44 @@ public:
 		index = _index;
 	}
 
+	void noticeCancel() {
+		rwlock.noticeCancel();
+	}
+
 	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockShared(waitings, req);
-		/*logMtx.lock();
+		/*
+		logMtx.lock();
 		cout << req.tid << " : get reader lock of " << req.index << endl;
-		logMtx.unlock();*/
+		logMtx.unlock();
+		*/
 	}
 
 	void getWriterLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockExclusive(waitings, req);
-		/*logMtx.lock();
+		/*
+		logMtx.lock();
 		cout << req.tid << " : get writer lock of " << req.index << endl;
-		logMtx.unlock();*/
-
+		logMtx.unlock();
+		*/
 	}
 
 	void releaseReaderLock(){
 		rwlock.unlockShared();
-		/*logMtx.lock();
+		/*
+		logMtx.lock();
 		cout << "release reader lock of " << getIndex() << endl;		
-		logMtx.unlock();*/
-
+		logMtx.unlock();
+		*/
 	}
 
 	void releaseWriterLock(){
 		rwlock.unlockExclusive();
-		/*logMtx.lock();
+		/*
+		logMtx.lock();
 		cout << "release writer lock of " << getIndex() << endl;
-		logMtx.unlock();*/
+		logMtx.unlock();
+		*/
 	}
 
 	int read(){
@@ -74,7 +87,7 @@ private:
 	RWLock rwlock;
 
 	
-	mutex logMtx;
+	//mutex logMtx;
 };
 
 #endif

@@ -39,7 +39,7 @@ void Transaction::work(int tid){
 
 	//get global lock
 	global_mutex.lock();
-	req = {i, LockType::R, tid};
+	req = {i, LockType::R, tid, false};
 	if(monitor->deadlock_check(req)){
 		undo(havingLocks);
 		global_mutex.unlock();
@@ -51,7 +51,7 @@ void Transaction::work(int tid){
 
 	//get global lock
 	global_mutex.lock();
-	req = {j, LockType::W1, tid};
+	req = {j, LockType::W1, tid, false};
 	if(monitor->deadlock_check(req)){
 		undo(havingLocks);
 		global_mutex.unlock();
@@ -63,7 +63,7 @@ void Transaction::work(int tid){
 
 	///get global lock
 	global_mutex.lock();
-	req = {k, LockType::W2, tid};
+	req = {k, LockType::W2, tid, false};
 	if(monitor->deadlock_check(req)){
 		undo(havingLocks);
 		global_mutex.unlock();
@@ -92,9 +92,16 @@ void Transaction::work(int tid){
 
 		cout << tid << " : commit " << cid << " finished" << endl; 
 	}
+	else {
+		for (LockInfo r : havingLocks)
+			monitor->releaseLock(r);
+		global_mutex.unlock();
+		break;
+	}
 	
 	for(LockInfo r : havingLocks)
 		monitor->releaseLock(r);
+	
 
 	//lose global lock
 	global_mutex.unlock();
@@ -106,7 +113,7 @@ void Transaction::work(int tid){
 
 void Transaction::undo(vector<LockInfo>& havings){
 	for(LockInfo r : havings)
-		monitor->deleteLock(r);
+		monitor->cancelLock(r);
 }
 
 int Transaction::getCommitId(){
