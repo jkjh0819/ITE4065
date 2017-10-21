@@ -6,6 +6,7 @@ Transaction::Transaction(int N, int R, int E){
 	numThreads = N;
 	numRecords = R;
 	monitor = new Monitor(numThreads, numRecords);
+	r = Random<int>(0, numRecords-1);
 }
 
 Transaction::~Transaction(){
@@ -27,7 +28,9 @@ void Transaction::work(int tid){
 	ofstream outFile("thread" + to_string(tid) + ".txt");
 
 	do {
-	int i=0, j=1, k=2, cid;
+
+	vector<int> v = r.get();
+	int i=v[0], j=v[1], k=v[2], cid;
 	int i_value, j_value, k_value;
 	LockInfo req;
 	vector<LockInfo> havingLocks;
@@ -86,6 +89,8 @@ void Transaction::work(int tid){
 
 		outFile << cid << " " << i << " " << j << " " << k << " "
 					<< monitor->readRecord(i) << " " << monitor->readRecord(j) << " " << monitor->readRecord(k) << endl;
+
+		cout << tid << " : commit " << cid << " finished" << endl; 
 	}
 	
 	for(LockInfo r : havingLocks)

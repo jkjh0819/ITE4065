@@ -33,6 +33,7 @@ private:
 	int64_t numRecords;
 	mutex global_mutex;
 	Monitor * monitor; 
+	Random<int> r;
 };
 
 #endif 

@@ -17,6 +17,7 @@ public:
 
 	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockShared(waitings, req);
+		cout << req.tid << " : get reader lock of " << req.index << endl;
 	}
 
 	void getWriterLock(vector<LockInfo>& waitings, LockInfo req){
