@@ -12,24 +12,39 @@ using namespace std;
 class Record {
 
 public:
-	Record(int _index) : index(_index), value(100) {};
+	Record(int _index) : index(_index), value(100) {
+		cout << index << endl;
+	};
 	~Record() {};
 
 	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockShared(waitings, req);
+		logMtx.lock();
 		cout << req.tid << " : get reader lock of " << req.index << endl;
+		logMtx.unlock();
 	}
 
 	void getWriterLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockExclusive(waitings, req);
+		logMtx.lock();
+		cout << req.tid << " : get writer lock of " << req.index << endl;
+		logMtx.unlock();
+
 	}
 
 	void releaseReaderLock(){
 		rwlock.unlockShared();
+		logMtx.lock();
+		cout << "release reader lock of " << getIndex() << endl;		
+		logMtx.unlock();
+
 	}
 
 	void releaseWriterLock(){
 		rwlock.unlockExclusive();
+		logMtx.lock();
+		cout << "release writer lock of " << getIndex() << endl;
+		logMtx.unlock();
 	}
 
 	int read(){
@@ -44,14 +59,17 @@ public:
 		value -= _value;
 	}
 
-	void release(vector<LockInfo>& waitings, LockInfo req){
-
+	int getIndex(){
+		return index;
 	}
 
 private:
 	int index;
 	int64_t value;
 	RWLock rwlock;
+
+	
+	mutex logMtx;
 };
 
 #endif

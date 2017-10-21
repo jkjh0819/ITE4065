@@ -34,6 +34,9 @@ private:
 	vector<vector<LockInfo> > lock_request;
 
 	Record ** records;
+
+
+	mutex logMtx;
 };
 
 #endif

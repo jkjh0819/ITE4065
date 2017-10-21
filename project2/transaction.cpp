@@ -31,7 +31,7 @@ void Transaction::work(int tid){
 
 	vector<int> v = r.get();
 	int i=v[0], j=v[1], k=v[2], cid;
-	int i_value, j_value, k_value;
+
 	LockInfo req;
 	vector<LockInfo> havingLocks;
 

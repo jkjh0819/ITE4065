@@ -5,7 +5,9 @@ Monitor::Monitor(int numThreads, int numRecords){
 	records = (Record **)malloc(sizeof(Record*));
 	for(int i = 0; i < numRecords; i++){
 		records[i] = new Record(i);
+		//cout << records[i]->getIndex() << endl;
 	}
+	cout << records[0]->getIndex() << endl;
 
 	threads_info.resize(numThreads, vector<int>(3, UNDEFINED));
 	lock_request.resize(numRecords, vector<LockInfo>());
@@ -17,6 +19,8 @@ Monitor::~Monitor(){
 }
 
 int Monitor::getLock(LockInfo req){
+	//cout << records[req.index]->getIndex() << endl;
+
 	if(req.type == LockType::R){
 		records[req.index]->getReaderLock(lock_request[req.index],req);
 	} else {
@@ -35,9 +39,18 @@ void Monitor::deleteLock(LockInfo req){
 }
 
 void Monitor::releaseLock(LockInfo req){
+	//cout << records[req.index]->getIndex() << endl;
+
 	if(req.type == LockType::R){
+		/*logMtx.lock();
+		cout << "try release reader lock of " << req.index << endl;
+		logMtx.unlock();*/
+
 		records[req.index]->releaseReaderLock();
 	} else {
+		/*logMtx.lock();
+		cout << "try release writer lock of " << req.index << endl; 
+		logMtx.unlock();*/
 		records[req.index]->releaseWriterLock();
 	}
 
@@ -45,6 +58,8 @@ void Monitor::releaseLock(LockInfo req){
 }
 
 bool Monitor::deadlock_check(LockInfo req){
+	//cout << records[req.index]->getIndex() << endl;
+
 	LockInfo cur;
 	stack<LockInfo> wait_for;
 	for(LockInfo r : lock_request[req.index])

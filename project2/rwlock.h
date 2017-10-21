@@ -65,7 +65,7 @@ private:
 
 	bool checkQueue(vector<LockInfo>& waitings, LockInfo req){
 		LockInfo first = waitings.front();
-		cout << "first : " << first.type << endl;
+		cout << "first : " << first.tid << endl;
 		if(req == first)
 			return true;
 		return false;
