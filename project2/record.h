@@ -12,10 +12,15 @@ using namespace std;
 class Record {
 
 public:
-	Record(int _index) : index(_index), value(100) {
+	Record() : value(100) {};
+	/*Record(int _index) : index(_index), value(100) {
 		cout << index << endl;
-	};
+	};*/
 	~Record() {};
+
+	void setIndex(int _index){
+		index = _index;
+	}
 
 	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockShared(waitings, req);

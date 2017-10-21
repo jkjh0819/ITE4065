@@ -2,12 +2,13 @@
 
 Monitor::Monitor(int numThreads, int numRecords){
 
-	records = (Record **)malloc(sizeof(Record*));
+	//records = (Record *)malloc(sizeof(Record*));
+	records = new Record[numRecords];
 	for(int i = 0; i < numRecords; i++){
-		records[i] = new Record(i);
+		records[i].setIndex(i);
 		//cout << records[i]->getIndex() << endl;
 	}
-	cout << records[0]->getIndex() << endl;
+	//cout << records[0].getIndex() << endl;
 
 	threads_info.resize(numThreads, vector<int>(3, UNDEFINED));
 	lock_request.resize(numRecords, vector<LockInfo>());
@@ -18,13 +19,13 @@ Monitor::~Monitor(){
 
 }
 
-int Monitor::getLock(LockInfo req){
+void Monitor::getLock(LockInfo req){
 	//cout << records[req.index]->getIndex() << endl;
 
 	if(req.type == LockType::R){
-		records[req.index]->getReaderLock(lock_request[req.index],req);
+		records[req.index].getReaderLock(lock_request[req.index],req);
 	} else {
-		records[req.index]->getWriterLock(lock_request[req.index],req);
+		records[req.index].getWriterLock(lock_request[req.index],req);
 	}
 }
 
@@ -46,12 +47,12 @@ void Monitor::releaseLock(LockInfo req){
 		cout << "try release reader lock of " << req.index << endl;
 		logMtx.unlock();*/
 
-		records[req.index]->releaseReaderLock();
+		records[req.index].releaseReaderLock();
 	} else {
 		/*logMtx.lock();
 		cout << "try release writer lock of " << req.index << endl; 
 		logMtx.unlock();*/
-		records[req.index]->releaseWriterLock();
+		records[req.index].releaseWriterLock();
 	}
 
 	deleteLock(req);
@@ -106,15 +107,15 @@ void Monitor::operation(vector<LockInfo> req){
 	int value;
 	for(LockInfo r : req){
 		if(r.type == LockType::R){
-			value = records[r.index]->read();
+			value = records[r.index].read();
 		} else if(r.type == LockType::W1){
-			records[r.index]->add(value + 1);
+			records[r.index].add(value + 1);
 		} else if(r.type == LockType::W2){
-			records[r.index]->sub(value);
+			records[r.index].sub(value);
 		}
 	}
 }
 
 int Monitor::readRecord(int index){
-	return records[index]->read();
+	return records[index].read();
 }

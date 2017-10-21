@@ -17,7 +17,7 @@ public:
 	Monitor(int numThreads, int numRecords);
 	~Monitor();
 
-	int getLock(LockInfo req);
+	void getLock(LockInfo req);
 	void deleteLock(LockInfo req);
 	void releaseLock(LockInfo req);
 
@@ -33,7 +33,7 @@ private:
 	//thread request queue
 	vector<vector<LockInfo> > lock_request;
 
-	Record ** records;
+	Record * records;
 
 
 	mutex logMtx;
