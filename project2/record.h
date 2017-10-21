@@ -24,32 +24,32 @@ public:
 
 	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockShared(waitings, req);
-		logMtx.lock();
+		/*logMtx.lock();
 		cout << req.tid << " : get reader lock of " << req.index << endl;
-		logMtx.unlock();
+		logMtx.unlock();*/
 	}
 
 	void getWriterLock(vector<LockInfo>& waitings, LockInfo req){
 		rwlock.lockExclusive(waitings, req);
-		logMtx.lock();
+		/*logMtx.lock();
 		cout << req.tid << " : get writer lock of " << req.index << endl;
-		logMtx.unlock();
+		logMtx.unlock();*/
 
 	}
 
 	void releaseReaderLock(){
 		rwlock.unlockShared();
-		logMtx.lock();
+		/*logMtx.lock();
 		cout << "release reader lock of " << getIndex() << endl;		
-		logMtx.unlock();
+		logMtx.unlock();*/
 
 	}
 
 	void releaseWriterLock(){
 		rwlock.unlockExclusive();
-		logMtx.lock();
+		/*logMtx.lock();
 		cout << "release writer lock of " << getIndex() << endl;
-		logMtx.unlock();
+		logMtx.unlock();*/
 	}
 
 	int read(){

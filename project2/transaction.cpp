@@ -25,7 +25,7 @@ void Transaction::run(){
 
 void Transaction::work(int tid){
 
-	ofstream outFile("thread" + to_string(tid) + ".txt");
+	ofstream outFile("./log/thread" + to_string(tid+1) + ".txt");
 
 	do {
 

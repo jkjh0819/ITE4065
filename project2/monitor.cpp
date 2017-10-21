@@ -68,7 +68,7 @@ bool Monitor::deadlock_check(LockInfo req){
 
 	while(!wait_for.empty()){
 		cur = wait_for.top();
-		
+		wait_for.pop();
 		//find cycle
 		if(cur.tid == req.tid){
 			return true;
@@ -94,7 +94,6 @@ bool Monitor::deadlock_check(LockInfo req){
 				}
 			}
 		} 
-		wait_for.pop();
 	}
 
 	lock_request[req.index].push_back(req);
