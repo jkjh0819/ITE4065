@@ -1,7 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include "record.h"
-#include "threadPool.h"
+#include "transaction.h"
 
 
 using namespace std;
@@ -25,10 +25,11 @@ int main(int argc, char * argv[]){
 		} else if(!(ssE >> E)){
 			cerr << "Invalid input " << argv[3] << '\n';
 		}
+
+		Transaction t(N, R, E);
+
+		t.run();
 	}
-	
-	ThreadPool pool(N, E);
-	pool.run();
 
 	return 0;
 }
