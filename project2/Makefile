@@ -1,2 +1,5 @@
-all : main.cpp
-	g++ -o test -std=c++0x -g main.cpp transaction.cpp monitor.cpp -lpthread
+all :  main.cpp transaction.cpp monitor.cpp
+	g++ -o run -g -std=c++0x  main.cpp transaction.cpp monitor.cpp -lpthread
+
+clean :
+	rm run

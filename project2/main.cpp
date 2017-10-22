@@ -9,6 +9,7 @@ using namespace std;
 int main(int argc, char * argv[]){
 	int N, R, E;
 
+	//check parameter
 	if(argc < 4){
 		cout << "Please run as ./run N R E" << endl;
 	} else {
@@ -26,8 +27,10 @@ int main(int argc, char * argv[]){
 			cerr << "Invalid input " << argv[3] << '\n';
 		}
 
+		//make transaction
 		Transaction t(N, R, E);
 
+		//start transaction
 		t.run();
 	}
 

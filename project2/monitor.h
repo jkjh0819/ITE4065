@@ -13,38 +13,45 @@
 
 using namespace std;
 
-
+//lock status 
+//get - get lock immediately
+//waiting - wait for other lock complete
+//deadlock - make cycle -> deadlock create
 enum Status {
 	get, waiting, deadlock
 };
 
+//class for handle lock info and record
 class Monitor{
 public:
 	Monitor(int numThreads, int numRecords);
 	~Monitor();
 
+	//get lock
 	void getLock(LockInfo req);
-	void cancelLock(LockInfo req);
+
+	//delete lock info from queue
 	void deleteLock(LockInfo req);
+
+	//release lock
 	void releaseLock(LockInfo req);
 
-	//return true -> deadlock, return false -> not deadlock
+	//return whether new request make deadlock or not
 	Status deadlock_check(LockInfo req);
-	int readRecord(int index);
+
 	int read(int index);
 	void write(int index, int value);
-	
-	void printRecordQueue();
 
 private:
 	//thread status table
 	vector<vector<int> > threads_info;
 	
-	//thread request queue
+	//record lock request queue
 	vector<vector<LockInfo> > lock_request;
 
 	Record * records;
 
+	//dependency graph
 	vector<set<int> > dependThreads;
 };
 

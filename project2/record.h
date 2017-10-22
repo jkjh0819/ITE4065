@@ -7,23 +7,19 @@
 #include "rwlock.h"
 #include "lockinfo.h"
 
-
-static mutex logMtx;
-
 using namespace std;
 
+//class for save record
 class Record {
 
 public:
+	//initial value is 100
 	Record() : value(100) {};
 	~Record() {};
 
+	//set Index 0 to numRecords -1
 	void setIndex(int _index){
 		index = _index;
-	}
-
-	void noticeCancel() {
-		rwlock.noticeCancel();
 	}
 
 	void getReaderLock(vector<LockInfo>& waitings, LockInfo req){
@@ -42,16 +38,14 @@ public:
 		rwlock.unlockExclusive();
 	}
 
+	//return record value
 	int read(){
 		return value;
 	}
 
+	//set record value as arguments
 	void set(int _value) {
 		value = _value;
-	}
-
-	int getIndex(){
-		return index;
 	}
 
 private:
