@@ -5,6 +5,7 @@
 #include <queue>
 #include <stack>
 #include <algorithm>
+#include <set>
 #include "lockinfo.h"
 #include "record.h"
 
@@ -38,6 +39,7 @@ private:
 
 	Record * records;
 
+	vector<set<int> > dependThreads;
 
 	mutex logMtx;
 };

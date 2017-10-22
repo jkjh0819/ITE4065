@@ -12,6 +12,7 @@ struct LockInfo{
 	bool operator==(const LockInfo& a) const {
 		return (index == a.index && type == a.type && tid == a.tid);
 	}
+
 };
 
 #endif

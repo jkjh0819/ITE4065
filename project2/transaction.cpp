@@ -25,7 +25,7 @@ void Transaction::run(){
 
 void Transaction::work(int tid){
 
-	ofstream outFile("./log/thread" + to_string(tid+1) + ".txt");
+	ofstream outFile("thread" + to_string(tid+1) + ".txt");
 
 	do {
 
@@ -47,6 +47,7 @@ void Transaction::work(int tid){
 	}
 	//lose global lock
 	global_mutex.unlock();
+	//monitor->getLock(req);
 	havingLocks.push_back(req);
 
 	//get global lock
@@ -59,6 +60,7 @@ void Transaction::work(int tid){
 	}
 	//lose global lock
 	global_mutex.unlock();
+	
 	havingLocks.push_back(req);
 
 	///get global lock
@@ -71,10 +73,12 @@ void Transaction::work(int tid){
 	}
 	//lose global lock
 	global_mutex.unlock();
+
 	havingLocks.push_back(req);
 
-	for(LockInfo r : havingLocks)
+	for (LockInfo r : havingLocks) {
 		monitor->getLock(r);
+	}
 
 	//get global lock
 	global_mutex.lock();
