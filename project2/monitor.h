@@ -31,8 +31,8 @@ public:
 	//return true -> deadlock, return false -> not deadlock
 	Status deadlock_check(LockInfo req);
 	int readRecord(int index);
-	int read(LockInfo req);
-	void write(LockInfo req, int value);
+	int read(int index);
+	void write(int index, int value);
 	
 	void printRecordQueue();
 

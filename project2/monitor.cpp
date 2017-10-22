@@ -78,13 +78,15 @@ void Monitor::releaseLock(LockInfo req){
 	}
 
 
-	cout << "after release" << endl;
-	printRecordQueue();
+	//cout << "after release" << endl;
+	//printRecordQueue();
 }
 
 Status Monitor::deadlock_check(LockInfo req) {
 	
+		printRecordQueue();
 	cout << ">> request " << req.tid << "-" << req.type << " to " << req.index << endl;
+
 
 	LockInfo cur;
 	stack<LockInfo> wait_for;
@@ -137,9 +139,9 @@ Status Monitor::deadlock_check(LockInfo req) {
 		}
 		return Status::get;
 	}
-	/*
-	printRecordQueue();
-	int i = 0;
+	
+	
+	/*int i = 0;
 	cout << "-- dependency" << endl;
 	for (set<int> d : dependThreads) {
 	
@@ -161,7 +163,7 @@ void Monitor::printRecordQueue(){
 			i++;
 			continue;
 		}
-		cout << "Record " << i++ << " : ";
+		cout << "Record " << i++ << "(" << records[i].read() << ")"<< " : ";
 		for (auto req : w) {
 			cout << req.tid << "-" << req.type << " " << req.getLock << " | ";
 		}
@@ -170,12 +172,12 @@ void Monitor::printRecordQueue(){
 	cout << "--------------------------------------------" << endl;
 }
 
-int Monitor::read(LockInfo req) {
-	return records[req.index].read();
+int Monitor::read(int index) {
+	return records[index].read();
 }
 
-void Monitor::write(LockInfo req, int value) {
-	records[req.index].set(value);
+void Monitor::write(int index, int value) {
+	records[index].set(value);
 }
 /*
 void Monitor::operation(vector<LockInfo> req){

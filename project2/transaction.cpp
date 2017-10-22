@@ -26,7 +26,7 @@ void Transaction::run(){
 
 void Transaction::work(int tid){
 
-	ofstream outFile("thread" + to_string(tid+1) + ".txt");
+	ofstream outFile("./log/thread" + to_string(tid+1) + ".txt");
 
 	while (global_execution_order < max_global_execution_order) {
 
@@ -55,7 +55,7 @@ void Transaction::work(int tid){
 
 		havingLocks.push_back(req);
 
-		i_value = monitor->read(req);
+		i_value = monitor->read(i);
 
 
 		//record j
@@ -78,8 +78,8 @@ void Transaction::work(int tid){
 		}
 		global_mutex.unlock();
 		havingLocks.push_back(req);
-		j_value = monitor->read(req);
-		monitor->write(req, j_value + i_value + 1);
+		j_value = monitor->read(j);
+		monitor->write(j, j_value + i_value + 1);
 
 		//record k
 
@@ -87,7 +87,9 @@ void Transaction::work(int tid){
 		req = { k, LockType::W2, tid, false };
 		switch (monitor->deadlock_check(req)) {
 		case Status::deadlock:
-			monitor->write(req, j_value);
+			
+			monitor->write(j, j_value);
+	
 			undo(havingLocks);
 			global_mutex.unlock();
 			continue;
@@ -102,8 +104,9 @@ void Transaction::work(int tid){
 		}
 		global_mutex.unlock();
 		havingLocks.push_back(req);
-		k_value = monitor->read(req);
-		monitor->write(req, k_value - i_value);
+		k_value = monitor->read(k);
+		monitor->write(k, k_value - i_value);
+		//cout << "Record " << req.index << " changed from " << k_value << " to " << k_value - i_value;
 
 
 		//get global lock
@@ -123,21 +126,17 @@ void Transaction::work(int tid){
 			outFile << cid << " " << i << " " << j << " " << k << " "
 				<< monitor->readRecord(i) << " " << monitor->readRecord(j) << " " << monitor->readRecord(k) << endl;
 
+				cout << cid << " " << i << " " << j << " " << k << " "
+				<< monitor->readRecord(i) << " " << monitor->readRecord(j) << " " << monitor->readRecord(k) << endl;
 			cout << tid << " : commit " << cid << " finished" << endl;
 		}
 		else {
 			//rollback
-			for (LockInfo r : havingLocks) {
-				switch (r.type) {
-				case LockType::R :
-						break;
-				case LockType::W1:
-					monitor->write(r, j_value);
-					break;
-				case LockType::W2:
-					monitor->write(r, k_value);
-				}
-			}
+			
+			monitor->write(i, i_value);
+			monitor->write(j, j_value);
+			monitor->write(k, k_value);
+
 			global_mutex.unlock();
 			return;
 		}
