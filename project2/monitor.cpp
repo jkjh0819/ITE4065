@@ -21,8 +21,6 @@ Monitor::~Monitor(){
 }
 
 void Monitor::getLock(LockInfo req){
-	//cout << records[req.index]->getIndex() << endl;
-
 	if(req.type == LockType::R){
 		records[req.index].getReaderLock(lock_request[req.index],req);
 		for (LockInfo& r : lock_request[req.index]) {
@@ -74,320 +72,34 @@ void Monitor::releaseLock(LockInfo req){
 	deleteLock(req);
 	
 	if(req.type == LockType::R){
-		/*logMtx.lock();
-		cout << "try release reader lock of " << req.index << endl;
-		logMtx.unlock();*/
-
 		records[req.index].releaseReaderLock();
 	} else {
-		/*logMtx.lock();
-		cout << "try release writer lock of " << req.index << endl; 
-		logMtx.unlock();*/
 		records[req.index].releaseWriterLock();
 	}
 
-	
 
 	cout << "after release" << endl;
 	printRecordQueue();
 }
 
-bool Monitor::deadlock_check(LockInfo req) {
-	//cout << records[req.index]->getIndex() << endl;
+Status Monitor::deadlock_check(LockInfo req) {
+	
 	cout << ">> request " << req.tid << "-" << req.type << " to " << req.index << endl;
-
-	/*LockInfo cur;
-	stack<LockInfo> wait_for;
-	for (LockInfo r : lock_request[req.index])
-		wait_for.push(r);
-
-	while (!wait_for.empty()) {
-		cur = wait_for.top();
-		wait_for.pop();
-
-		//find cycle
-		if (cur.tid == req.tid) {
-			return true;
-		}
-
-		if (cur.type == LockType::W1) {
-			for (LockInfo r : lock_request[threads_info[cur.tid][LockType::R]]) {
-					if (r.tid == cur.tid)
-						break;
-					if (r.tid == req.tid) {
-						cout << ">> find cycle" << endl;
-						return true;
-					}
-					wait_for.push(r);
-				}
-
-
-		} else if (cur.type == LockType::W2) {
-
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-					if (r.tid == cur.tid)
-						break;
-					if (r.tid == req.tid)
-						return true;
-					wait_for.push(r);
-				}
-		}
-	}*/
-	/*if (req.type == LockType::R) {
-		lock_request[req.index].push_back(req);
-		threads_info[req.tid][req.type] = req.index;
-
-		printRecordQueue();
-		return false;
-	}*/
 
 	LockInfo cur;
 	stack<LockInfo> wait_for;
 	set<int> visited;
 
 	for (LockInfo r : lock_request[req.index]) {
-		//preThreads.insert(r.tid);
 		if (req.type == LockType::R && r.type != LockType::R) {
-			//visited.insert(r.tid);
 			dependThreads[req.tid].insert(r.tid);
 		}
 		if (req.type != LockType::R) {
 			dependThreads[req.tid].insert(r.tid);
-			//visited.insert(r.tid);
 		}
 
 		wait_for.push(r);
 	}
-
-	//for (int tid : dependThreads[req.tid])
-	//	visited.insert(tid);
-
-	while (!wait_for.empty()) {
-		cur = wait_for.top();
-		wait_for.pop();
-
-		/*for (int tid : dependThreads[cur.tid]) {
-			if (visited.find(tid) != visited.end())
-				return true;
-			visited.insert(tid);
-			//dependThreads[req.tid].insert(tid);
-		}*/
-
-		for (int tid : dependThreads[cur.tid])
-			dependThreads[req.tid].insert(tid);
-
-		//current dependThreads include reqThreads
-		if (dependThreads[cur.tid].find(req.tid) != dependThreads[cur.tid].end())
-			return true;
-	
-
-		//find cycle
-		if (cur.tid == req.tid) {
-			return true;
-		}
-
-		if (cur.type == LockType::R) {
-			if (cur.getLock) {
-				//have lock, check W1
-				if (threads_info[cur.tid][LockType::W1] != UNDEFINED)
-				{
-
-					for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-						if (r.tid == cur.tid && r.getLock) {
-							wait_for.push(r);
-							break;
-						}
-					}
-				}
-			}
-			else {
-				//doesn't have lock, should satisfy preRequest
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::R]]) {
-					if (r.tid == cur.tid) {
-						//wait_for.push(r);
-						break;
-					}
-					if (r.tid == req.tid) {
-						cout << ">> find cycle" << endl;
-						return true;
-					}
-					//when lock is read, if there are any write graph, it depends on the thread commit
-					if (r.type != LockType::R) {
-						dependThreads[req.tid].insert(r.tid);
-					}
-
-					wait_for.push(r);
-				}
-			}
-
-
-		}
-		else if (cur.type == LockType::W1) {
-			if (cur.getLock) {
-				//have lock, check W1
-				if (threads_info[cur.tid][LockType::W2] != UNDEFINED)
-				{
-
-					for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W2]]) {
-						if (r.tid == cur.tid && r.getLock) {
-							wait_for.push(r);
-							break;
-						}
-					}
-				}
-			}
-			else {
-				//doesn't have lock, should satisfy preRequest
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-			
-					if (r.tid == cur.tid) {
-						//wait_for.push(r);
-						break;
-					}
-					if (r.tid == req.tid) {
-						cout << ">> find cycle" << endl;
-						return true;
-					}
-					dependThreads[req.tid].insert(r.tid);
-
-					wait_for.push(r);
-				}
-			}
-		}
-		else {
-			if (cur.getLock) {
-				break;
-			}
-			else {
-				//doesn't have lock, should satisfy preRequest
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W2]]) {
-					if (r.tid == cur.tid) {
-						//wait_for.push(r);
-						break;
-					}
-					if (r.tid == req.tid) {
-						cout << ">> find cycle" << endl;
-						return true;
-					}
-					dependThreads[req.tid].insert(r.tid);
-
-					wait_for.push(r);
-				}
-			}
-
-		}
-	}
-	/*if (cur.getLock) {
-		if (cur.type == LockType::R) {
-			if (threads_info[cur.tid][LockType::W1] != UNDEFINED)
-			{
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-					if (r.tid == cur.tid && r.getLock) {
-						break;
-					}
-				}
-
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-					if (r.tid == cur.tid) {
-						wait_for.push(r);
-						break;
-					}
-					if (r.tid == req.tid) {
-						cout << ">> find cycle" << endl;
-						return true;
-					}
-
-					wait_for.push(r);
-
-				}
-			}
-
-		}
-		else if (cur.type == LockType::W1) {
-			if (threads_info[cur.tid][LockType::W2] != UNDEFINED)
-			{
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W2]]) {
-					if (r.tid == cur.tid && r.getLock) {
-						break;
-					}
-				}
-
-				for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W2]]) {
-					if (r.tid == cur.tid) {
-						wait_for.push(r);
-
-						break;
-					}
-					if (r.tid == req.tid) {
-						cout << ">> find cycle" << endl;
-						return true;
-					}
-
-					wait_for.push(r);
-
-				}
-			}
-		}
-	}
-	else {
-		if (cur.type == LockType::W2) {
-
-			for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-				if (r.tid == cur.tid) {
-					if (!r.getLock)
-						wait_for.push(r);
-					break;
-				}
-				if (r.tid == req.tid) {
-					cout << ">> find cycle" << endl;
-					return true;
-				}
-
-				wait_for.push(r);
-
-			}
-
-
-		}
-		else if (cur.type == LockType::W1) {
-
-			for (LockInfo r : lock_request[threads_info[cur.tid][LockType::R]]) {
-				if (r.tid == cur.tid) {
-					if(!r.getLock)
-						wait_for.push(r);
-
-					break;
-				}
-				if (r.tid == req.tid) {
-					cout << ">> find cycle" << endl;
-					return true;
-				}
-
-				wait_for.push(r);
-
-			}
-
-		}
-	}
-}
-
-
-
-	/*else if (cur.type == LockType::W2) {
-		for (LockInfo r : lock_request[threads_info[cur.tid][LockType::R]]) {
-			if (r.tid == req.tid)
-				return true;
-			if (r.tid == cur.tid)
-				break;
-
-		}
-		for (LockInfo r : lock_request[threads_info[cur.tid][LockType::W1]]) {
-			if (r.tid == req.tid)
-				return true;
-			if (r.tid == cur.tid)
-				break;
-		}
-	}*/
 
 	queue<int> checkDepend;
 	for (int tid : dependThreads[req.tid]) {
@@ -399,7 +111,7 @@ bool Monitor::deadlock_check(LockInfo req) {
 		checkDepend.pop();
 
 		if (cur == req.tid)
-			return true;
+			return Status::deadlock;
 		if (visited.find(cur) != visited.end())
 			continue;
 
@@ -411,6 +123,21 @@ bool Monitor::deadlock_check(LockInfo req) {
 	lock_request[req.index].push_back(req);
 	threads_info[req.tid][req.type] = req.index;
 
+	//lock_req, only me => get lock
+	if (lock_request[req.index].front() == req)
+		return Status::get;
+
+	if (req.type == LockType::R) {
+		for (LockInfo r : lock_request[req.index]) {
+			if (r == req) {
+				break;
+			}
+			if (r.type != LockType::R)
+				return Status::waiting;
+		}
+		return Status::get;
+	}
+	/*
 	printRecordQueue();
 	int i = 0;
 	cout << "-- dependency" << endl;
@@ -422,10 +149,9 @@ bool Monitor::deadlock_check(LockInfo req) {
 		}
 		cout << endl;
 
-	}
+	}*/
 
-	return false;
-
+	return Status::waiting;
 }
 
 void Monitor::printRecordQueue(){
@@ -444,6 +170,14 @@ void Monitor::printRecordQueue(){
 	cout << "--------------------------------------------" << endl;
 }
 
+int Monitor::read(LockInfo req) {
+	return records[req.index].read();
+}
+
+void Monitor::write(LockInfo req, int value) {
+	records[req.index].set(value);
+}
+/*
 void Monitor::operation(vector<LockInfo> req){
 	int value;
 	for(LockInfo r : req){
@@ -455,8 +189,8 @@ void Monitor::operation(vector<LockInfo> req){
 			records[r.index].sub(value);
 		}
 	}
-}
+}*/
 
-int Monitor::readRecord(int index){
+int Monitor::readRecord(int index) {
 	return records[index].read();
 }

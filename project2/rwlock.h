@@ -69,7 +69,7 @@ private:
 
 	bool checkQueue(vector<LockInfo>& waitings, LockInfo req){
 		LockInfo first = waitings.front();
-		//cout << "first : " << first.tid << endl;
+		
 		if(req == first)
 			return true;
 
@@ -91,6 +91,7 @@ private:
 				if (r == req) {
 					break;
 				}
+				//happen before req, if write lock exist and reader lock which not get lock
 				if (r.type == LockType::W1 || r.type == LockType::W2 || !r.getLock)
 					return onlyWriter;
 			}

@@ -13,6 +13,11 @@
 
 using namespace std;
 
+
+enum Status {
+	get, waiting, deadlock
+};
+
 class Monitor{
 public:
 	Monitor(int numThreads, int numRecords);
@@ -24,10 +29,11 @@ public:
 	void releaseLock(LockInfo req);
 
 	//return true -> deadlock, return false -> not deadlock
-	bool deadlock_check(LockInfo req);
+	Status deadlock_check(LockInfo req);
 	int readRecord(int index);
-	void operation(vector<LockInfo> req);
-
+	int read(LockInfo req);
+	void write(LockInfo req, int value);
+	
 	void printRecordQueue();
 
 private:
@@ -40,8 +46,6 @@ private:
 	Record * records;
 
 	vector<set<int> > dependThreads;
-
-	mutex logMtx;
 };
 
 #endif
