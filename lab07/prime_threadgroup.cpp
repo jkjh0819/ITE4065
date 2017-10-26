@@ -78,6 +78,9 @@ int main(void) {
     delete print_work; 
     print->join();
 
+    io.stop();
+    print_io.stop();
+
     return 0;
 
 }
