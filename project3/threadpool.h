@@ -5,11 +5,12 @@
 #include <vector>
 #include <chrono>
 #include <climits>
+#include <iostream>
 
 #include "wfsnapshot.h"
 #include "random.h"
 
-#define running 1000
+#define running 60000
 
 using namespace std;
 
