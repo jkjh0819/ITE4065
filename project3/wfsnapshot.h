@@ -60,6 +60,7 @@ private:
 	vector<StampedSnap<T> > snaps;
 
 	vector<StampedSnap<T> > collect() {
+		//cout << snaps.size() << endl;
 		vector<StampedSnap<T> > copy(snaps.size());
 
 		for (int i = 0; i < copy.size(); i++) {

@@ -20,15 +20,15 @@ public:
     }
 	
 	T read() const {
-	return value;
+		return value;
 	}
 
 	vector<T> get_snap() const {
-	return snap;
+		return snap;
 	}
 
 	long get_stamp() const {
-	return stamp;
+		return stamp;
 	}
 
 private:

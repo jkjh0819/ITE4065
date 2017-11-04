@@ -10,8 +10,8 @@ ThreadPool::ThreadPool(int _numThreads){
 }
 
 ThreadPool::~ThreadPool(){
-
-
+	delete[] updateCounts;
+	delete snapshot;
 }
 
 int ThreadPool::run(){
@@ -21,6 +21,7 @@ int ThreadPool::run(){
 		threads.push_back(thread(&ThreadPool::work, this, i));
 	}
 
+	cout << "create finished" << endl;
 	this_thread::sleep_for(chrono::milliseconds(running));
 	exit = true;
 
@@ -38,10 +39,11 @@ int ThreadPool::run(){
 void ThreadPool::work(int i){
 	int tid = i;
 	int updateCount = 0;
+
 	while(!exit){
 		int newValue = r.get();
 
-		snapshot->update(newValue, tid);
+		this->snapshot->update(newValue, tid);
 		updateCount++;
 	}
 

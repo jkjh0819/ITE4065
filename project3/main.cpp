@@ -17,7 +17,7 @@ int main(int argc, char * argv[]){
 
 		ThreadPool t(N);
 
-		cout << "update : " << t.run();
+		cout << "update : " << t.run() << endl;
 
 	}	
 
