@@ -10,7 +10,7 @@
 #include "wfsnapshot.h"
 #include "random.h"
 
-#define running 20000
+#define running 60000
 
 using namespace std;
 

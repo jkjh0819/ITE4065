@@ -21,7 +21,7 @@ int ThreadPool::run(){
 		threads.push_back(thread(&ThreadPool::work, this, i));
 	}
 
-	cout << "create finished" << endl;
+	cout << "joined" << endl;
 	this_thread::sleep_for(chrono::milliseconds(running));
 	exit = true;
 

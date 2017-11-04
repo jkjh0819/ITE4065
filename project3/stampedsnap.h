@@ -10,8 +10,8 @@ class StampedSnap{
 
 public:
 	StampedSnap(T value = 0, long stamp = 0,
-         const std::vector<T>& snap = std::vector<T>())
-         : value(value), snap(snap), stamp(stamp) {
+         T* _snap = nullptr)
+         : value(value), snap(_snap), stamp(stamp) {
       }
 
     StampedSnap(const StampedSnap& ssnap)
@@ -23,7 +23,7 @@ public:
 		return value;
 	}
 
-	vector<T> get_snap() const {
+	T * get_snap() const {
 		return snap;
 	}
 
@@ -34,7 +34,7 @@ public:
 private:
 	long stamp;
 	T value;
-	vector<T> snap;
+	T * snap;
 };
 
 #endif
