@@ -12,9 +12,9 @@ public:
 	Random() {};
 	Random(T min, T max) : gen(random_device()()), dis(min, max) {};
 
+	//return random T value
 	T get(){
 		T ret = dis(gen);
-
 		return ret;
 	}
 
