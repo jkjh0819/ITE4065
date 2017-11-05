@@ -62,6 +62,7 @@ public:
 						and execute from collect again */
 					else {
 						moved[i] = true;
+						delete oldCopy;
 						oldCopy = newCopy;
 						flag = true;
 						break;
