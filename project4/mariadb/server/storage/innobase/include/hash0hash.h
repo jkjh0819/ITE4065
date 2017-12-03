@@ -30,6 +30,9 @@ Created 5/20/1997 Heikki Tuuri
 #include "mem0mem.h"
 #include "sync0rw.h"
 
+//Jihye : for using atomic operation, add atomic header
+#include <atomic>
+
 struct hash_table_t;
 struct hash_cell_t;
 
@@ -468,7 +471,9 @@ hash_unlock_x_all_but(
 	rw_lock_t*	keep_lock);	/*!< in: lock to keep */
 
 struct hash_cell_t{
-	//Jihye: this statement should change void* to lock-free linked list
+	//Jihye : for atomic insert, add tail
+	atomic<hash_cell_t* > 	tail;
+
 	void*	node;	/*!< hash chain node, NULL if none */
 };
 

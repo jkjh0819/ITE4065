@@ -49,6 +49,10 @@ Created 5/7/1996 Heikki Tuuri
 
 #include <set>
 
+//Jihye : for atomic operation, add atomic header
+
+#include <atomic>
+
 #ifdef WITH_WSREP
 #include <mysql/service_wsrep.h>
 #endif /* WITH_WSREP */
@@ -2608,7 +2612,9 @@ lock_rec_lock(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	ut_ad(lock_mutex_own());
+	//Jihye : because lock_enter_mutex will be disappeared, make annotation
+	//ut_ad(lock_mutex_own());
+	
 	ut_ad(!srv_read_only_mode);
 	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
@@ -2623,6 +2629,9 @@ lock_rec_lock(
 
 	/* We try a simplified and faster subroutine for the most
 	common cases */
+
+	//Jihye : use atomic operation for add lock, make annotation
+	/*
 	switch (lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
 	case LOCK_REC_SUCCESS:
 		return(DB_SUCCESS);
@@ -2634,7 +2643,13 @@ lock_rec_lock(
 	}
 
 	ut_error;
-	return(DB_ERROR);
+	return(DB_ERROR);*/
+
+	//Jihye : make new record lock
+	RecLock rec_lock(thr, index, block, heap_no, mode);
+
+
+	return(DB_SUCCESS_LOCKED_REC);
 }
 
 /*********************************************************************//**
