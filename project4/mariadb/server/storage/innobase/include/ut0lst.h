@@ -53,6 +53,8 @@ struct ut_list_node {
 	}
 };
 
+//Jihye : should make new lock-free linked list based on ut_list_base
+
 /** Macro used for legacy reasons */
 #define UT_LIST_NODE_T(t)		ut_list_node<t>
 

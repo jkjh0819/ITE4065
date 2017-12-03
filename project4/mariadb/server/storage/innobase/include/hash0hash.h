@@ -468,6 +468,7 @@ hash_unlock_x_all_but(
 	rw_lock_t*	keep_lock);	/*!< in: lock to keep */
 
 struct hash_cell_t{
+	//Jihye: this statement should change void* to lock-free linked list
 	void*	node;	/*!< hash chain node, NULL if none */
 };
 
@@ -482,6 +483,9 @@ struct hash_table_t {
 # endif /* UNIV_AHI_DEBUG || UNIV_DEBUG */
 #endif /* BTR_CUR_HASH_ADAPT */
 	ulint			n_cells;/* number of cells in the hash table */
+
+
+	//Jihye: have to change to include linked list
 	hash_cell_t*		array;	/*!< pointer to cell array */
 
 	ulint			n_sync_obj;/* if sync_objs != NULL, then

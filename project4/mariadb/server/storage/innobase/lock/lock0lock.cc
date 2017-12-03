@@ -2581,6 +2581,8 @@ lock_rec_lock_slow(
 	return(err);
 }
 
+//Jihye : change to use lock-free insert, for this, use atomic operation and get snapshot
+
 /*********************************************************************//**
 Tries to lock the specified record in the mode requested. If not immediately
 possible, enqueues a waiting lock request. This is a low-level function
@@ -7102,6 +7104,9 @@ lock_sec_rec_read_check_and_lock(
 	return(err);
 }
 
+//Jihye : selection query called 
+
+
 /*********************************************************************//**
 Checks if locks of other transactions prevent an immediate read, or passing
 over by a read cursor, of a clustered index record. If they do, first tests
@@ -7155,6 +7160,7 @@ lock_clust_rec_read_check_and_lock(
 
 		lock_rec_convert_impl_to_expl(block, rec, index, offsets);
 	}
+
 
 	lock_mutex_enter();
 
@@ -7569,6 +7575,8 @@ lock_unlock_table_autoinc(
 		lock_mutex_exit();
 	}
 }
+
+//Jihye : change to makr logical deletion, should make garbage collector
 
 /*********************************************************************//**
 Releases a transaction's locks, and releases possible other transactions
