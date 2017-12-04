@@ -472,7 +472,7 @@ hash_unlock_x_all_but(
 
 struct hash_cell_t{
 	//Jihye : for atomic insert, add tail
-	atomic<hash_cell_t* > 	tail;
+	//std::atomic<RecLock* > 	tail;
 
 	void*	node;	/*!< hash chain node, NULL if none */
 };

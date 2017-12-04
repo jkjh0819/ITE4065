@@ -113,9 +113,10 @@ hash_create(
 		ut_malloc_nokey(sizeof(hash_cell_t) * prime));
 
 	//Jihye : set tail point to node(current head)
-	for(int i = 0; i < prime; i++) {
-		array[i].tail = array[i].node;
+/*	for(int i = 0; i < prime; i++) {
+		array[i].tail.store(array[i].node);
 	}
+*/
 
 	/* The default type of hash_table is HASH_TABLE_SYNC_NONE i.e.:
 	the caller is responsible for access control to the table. */

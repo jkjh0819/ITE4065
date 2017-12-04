@@ -2646,8 +2646,19 @@ lock_rec_lock(
 	return(DB_ERROR);*/
 
 	//Jihye : make new record lock
-	RecLock rec_lock(thr, index, block, heap_no, mode);
+	//RecLock newLock(thr, index, block, heap_no, mode);
 
+	/*whlie(true){
+		Atomic<RecLock* > tailLock = locksys->rec_hash->array[index].tail.load();
+
+		if(tail_lock == null){
+			if(locksys->rec_hash->array[index].tail.compare_exchange_strong(tailLock, newLock)){
+				break;
+			}
+		} else {
+
+		}
+	}*/
 
 	return(DB_SUCCESS_LOCKED_REC);
 }
@@ -7100,7 +7111,7 @@ lock_sec_rec_read_check_and_lock(
 		lock_rec_convert_impl_to_expl(block, rec, index, offsets);
 	}
 
-	lock_mutex_enter();
+	//lock_mutex_enter();
 
 	ut_ad(mode != LOCK_X
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
@@ -7112,7 +7123,7 @@ lock_sec_rec_read_check_and_lock(
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
 
-	lock_mutex_exit();
+	//lock_mutex_exit();
 
 	ut_ad(lock_rec_queue_validate(FALSE, block, rec, index, offsets));
 
