@@ -1901,6 +1901,7 @@ lock_rec_insert_to_head(
 	lock_t *in_lock,   /*!< in: lock to be insert */
 	ulint	rec_fold)  /*!< in: rec_fold of the page */
 {
+	//Jihye : this part should add lock to lock list by CAS
 	hash_table_t*		hash;
 	hash_cell_t*		cell;
 	lock_t*				node;
@@ -1926,6 +1927,7 @@ Add the lock to the record lock hash and the transaction's lock list
 void
 RecLock::lock_add(lock_t* lock, bool add_to_hash)
 {
+	//Jihye : add_to_hash is true
 	ut_ad(lock_mutex_own());
 	ut_ad(trx_mutex_own(lock->trx));
 
@@ -1939,12 +1941,15 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 
 		if (innodb_lock_schedule_algorithm == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS
 			&& !thd_is_replication_slave_thread(lock->trx->mysql_thd)) {
+			//Jihye : about read-only workload, wait_lock is false;
 			if (wait_lock) {
 				HASH_INSERT(lock_t, hash, lock_hash, key, lock);
 			} else {
+				//Jihye : this part will be executed.
 				lock_rec_insert_to_head(lock, m_rec_id.fold());
 			}
 		} else {
+			//Jihye : about read-only workload, wait_lock is false;
 			HASH_INSERT(lock_t, hash, lock_hash, key, lock);
 		}
 	}
@@ -1991,6 +1996,8 @@ RecLock::create(
 #ifdef WITH_WSREP
 	if (c_lock && wsrep_on_trx(trx) &&
 	    wsrep_thd_is_BF(trx->mysql_thd, FALSE)) {
+
+		//Jihye : about read-only workload, this part is not executed.
 		lock_t *hash	= (lock_t *)c_lock->hash;
 		lock_t *prev	= NULL;
 
@@ -2241,7 +2248,8 @@ queue is itself waiting roll it back, also do a deadlock check and resolve.
 dberr_t
 RecLock::add_to_waitq(const lock_t* wait_for, const lock_prdt_t* prdt)
 {
-	ut_ad(lock_mutex_own());
+	//Jihye : mutex should be removed, so make as annotation
+	//ut_ad(lock_mutex_own());
 	ut_ad(m_trx == thr_get_trx(m_thr));
 	ut_ad(trx_mutex_own(m_trx));
 
@@ -2327,6 +2335,8 @@ lock_rec_add_to_queue(
 	}
 
 	if (!(type_mode & (LOCK_WAIT | LOCK_GAP))) {
+		//Jihye : about read-only workload, this part is not executed
+
 		lock_mode	mode = (type_mode & LOCK_MODE_MASK) == LOCK_S
 			? LOCK_X
 			: LOCK_S;
@@ -2341,6 +2351,7 @@ lock_rec_add_to_queue(
 			!wsrep_thd_is_BF(trx->mysql_thd, FALSE) &&
 			!wsrep_thd_is_BF(other_lock->trx->mysql_thd, TRUE)) {
 
+			//Jihye : about read-only workload, this part is not executed
 			ib::info() << "WSREP BF lock conflict for my lock:\n BF:" <<
 				((wsrep_thd_is_BF(trx->mysql_thd, FALSE)) ? "BF" : "normal") << " exec: " <<
 				wsrep_thd_exec_mode(trx->mysql_thd) << " conflict: " <<
@@ -2389,13 +2400,12 @@ lock_rec_add_to_queue(
 
 		if (lock_get_wait(lock)
 		    && lock_rec_get_nth_bit(lock, heap_no)) {
-
+			//Jihye : about read-only workload, this part is not executed
 			break;
 		}
 	}
 
 	if (lock == NULL && !(type_mode & LOCK_WAIT)) {
-
 		/* Look for a similar record lock on the same page:
 		if one is found and there are no waiting lock requests,
 		we can just set the bit */
@@ -2404,9 +2414,8 @@ lock_rec_add_to_queue(
 			type_mode, heap_no, first_lock, trx);
 
 		if (lock != NULL) {
-
+			//Jihye : this part executed, check again
 			lock_rec_set_nth_bit(lock, heap_no);
-
 			return;
 		}
 	}
@@ -2441,7 +2450,8 @@ lock_rec_lock_fast(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	ut_ad(lock_mutex_own());
+	//Jihye : make as annotation for removing global lock
+	//ut_ad(lock_mutex_own());
 	ut_ad(!srv_read_only_mode);
 	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
@@ -2522,7 +2532,8 @@ lock_rec_lock_slow(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	ut_ad(lock_mutex_own());
+	//Jihye : make as annotation for removing global lock
+	//ut_ad(lock_mutex_own());
 	ut_ad(!srv_read_only_mode);
 	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
@@ -2543,7 +2554,6 @@ lock_rec_lock_slow(
 	trx_mutex_enter(trx);
 
 	if (lock_rec_has_expl(mode, block, heap_no, trx)) {
-
 		/* The trx already has a strong enough lock on rec: do
 		nothing */
 
@@ -2555,6 +2565,7 @@ lock_rec_lock_slow(
 			mode, block, heap_no, trx);
 
 		if (wait_for != NULL) {
+			//Jihye : about read-only workload, this part is not executed.
 
 			/* If another transaction has a non-gap conflicting
 			request in the queue, as this transaction does not
@@ -2566,9 +2577,9 @@ lock_rec_lock_slow(
 			err = rec_lock.add_to_waitq(wait_for);
 
 		} else if (!impl) {
-
 			/* Set the requested lock on the record, note that
 			we already own the transaction mutex. */
+
 
 			lock_rec_add_to_queue(
 				LOCK_REC | mode, block, heap_no, index, trx,
@@ -2576,6 +2587,8 @@ lock_rec_lock_slow(
 
 			err = DB_SUCCESS_LOCKED_REC;
 		} else {
+			//Jihye : about read-only workload, this part is not executed.
+
 			err = DB_SUCCESS;
 		}
 	}
@@ -2631,7 +2644,7 @@ lock_rec_lock(
 	common cases */
 
 	//Jihye : use atomic operation for add lock, make annotation
-	/*
+
 	switch (lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
 	case LOCK_REC_SUCCESS:
 		return(DB_SUCCESS);
@@ -2643,7 +2656,7 @@ lock_rec_lock(
 	}
 
 	ut_error;
-	return(DB_ERROR);*/
+	return(DB_ERROR);
 
 	//Jihye : make new record lock
 	//RecLock newLock(thr, index, block, heap_no, mode);
@@ -2660,7 +2673,7 @@ lock_rec_lock(
 		}
 	}*/
 
-	return(DB_SUCCESS_LOCKED_REC);
+	//return(DB_SUCCESS_LOCKED_REC);
 }
 
 /*********************************************************************//**
@@ -5222,7 +5235,7 @@ lock_release(
 		ut_d(lock_check_dict_lock(lock));
 
 		if (lock_get_type_low(lock) == LOCK_REC) {
-
+			
 			lock_rec_dequeue_from_page(lock);
 		} else {
 			dict_table_t*	table;
@@ -7602,7 +7615,7 @@ lock_unlock_table_autoinc(
 	}
 }
 
-//Jihye : change to makr logical deletion, should make garbage collector
+//Jihye : change to mark logical deletion, should make garbage collector
 
 /*********************************************************************//**
 Releases a transaction's locks, and releases possible other transactions
@@ -7638,6 +7651,7 @@ lock_trx_release_locks(
 
 	/* Don't take lock_sys mutex if trx didn't acquire any lock. */
 	if (release_lock) {
+		//Jihye : this part should be annotation for removing global lock
 
 		/* The transition of trx->state to TRX_STATE_COMMITTED_IN_MEMORY
 		is protected by both the lock_sys->mutex and the trx->mutex. */

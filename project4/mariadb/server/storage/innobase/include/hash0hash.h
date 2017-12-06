@@ -30,9 +30,6 @@ Created 5/20/1997 Heikki Tuuri
 #include "mem0mem.h"
 #include "sync0rw.h"
 
-//Jihye : for using atomic operation, add atomic header
-#include <atomic>
-
 struct hash_table_t;
 struct hash_cell_t;
 
@@ -471,9 +468,6 @@ hash_unlock_x_all_but(
 	rw_lock_t*	keep_lock);	/*!< in: lock to keep */
 
 struct hash_cell_t{
-	//Jihye : for atomic insert, add tail
-	//std::atomic<RecLock* > 	tail;
-
 	void*	node;	/*!< hash chain node, NULL if none */
 };
 
@@ -510,7 +504,7 @@ struct hash_table_t {
 	mem_heap_t**		heaps;	/*!< if this is non-NULL, hash
 					chain nodes for external chaining
 					can be allocated from these memory
-					heaps; there are then n_mutexes
+				heaps; there are then n_mutexes
 					many of these heaps */
 	mem_heap_t*		heap;
 #ifdef UNIV_DEBUG

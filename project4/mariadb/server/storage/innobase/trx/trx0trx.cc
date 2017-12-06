@@ -1707,6 +1707,8 @@ trx_commit_in_memory(
 	trx->must_flush_log_later = false;
 
 	if (trx_is_autocommit_non_locking(trx)) {
+		//Jihye : about read-only workload, this part is not executed
+
 		ut_ad(trx->id == 0);
 		ut_ad(trx->read_only);
 		ut_a(!trx->is_recovered);
@@ -1912,8 +1914,10 @@ trx_commit_low(
 
 	/* undo_no is non-zero if we're doing the final commit. */
 	if (trx->fts_trx != NULL && trx->undo_no != 0) {
-		dberr_t	error;
 
+		//Jihye : about read-only workload, this part is not executed.
+
+		dberr_t	error;
 		ut_a(!trx_is_autocommit_non_locking(trx));
 
 		error = fts_commit(trx);
@@ -1935,6 +1939,7 @@ trx_commit_low(
 	bool	serialised;
 
 	if (mtr != NULL) {
+		//Jihye : about read-only workload, this part is not executed.
 
 		mtr->set_sync();
 
@@ -1968,6 +1973,7 @@ trx_commit_low(
 		/*--------------*/
 
 	} else {
+		//Jihye : all read-only workload pass here
 		serialised = false;
 	}
 #ifndef DBUG_OFF
