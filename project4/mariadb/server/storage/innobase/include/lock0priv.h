@@ -847,6 +847,8 @@ private:
 	@param[in] add_to_hash	If the lock should be added to the hash table */
 	void lock_add(lock_t* lock, bool add_to_hash);
 
+	void project4_lock_add(lock_t* lock, bool add_to_hash);
+
 	/**
 	Check and resolve any deadlocks
 	@param[in, out] lock		The lock being acquired

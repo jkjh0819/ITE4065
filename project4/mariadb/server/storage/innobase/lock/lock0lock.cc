@@ -1961,6 +1961,18 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
 }
 
+void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
+
+	ut_ad(trx_mutex_own(lock->trx));
+
+	if (add_to_hash) {
+		++lock->index->table->n_rec_locks;
+		lock_rec_insert_to_head(lock, m_rec_id.fold());
+	}
+
+	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
+}
+
 /**
 Create a new lock.
 @param[in,out] trx		Transaction requesting the lock
@@ -2127,7 +2139,7 @@ RecLock::project4_create(lock_t* const	c_lock,
 		trx_mutex_enter(trx);
 	}
 
-	lock_add(lock, add_to_hash);
+	project4_lock_add(lock, add_to_hash);
 
 	if (!owns_trx_mutex) {
 		trx_mutex_exit(trx);
