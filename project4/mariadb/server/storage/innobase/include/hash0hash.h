@@ -468,6 +468,8 @@ hash_unlock_x_all_but(
 	rw_lock_t*	keep_lock);	/*!< in: lock to keep */
 
 struct hash_cell_t{
+	ulint epoch;
+	void*	tail;
 	void*	node;	/*!< hash chain node, NULL if none */
 };
 

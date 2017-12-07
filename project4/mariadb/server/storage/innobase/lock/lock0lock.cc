@@ -1920,6 +1920,31 @@ lock_rec_insert_to_head(
 	}
 }
 
+static
+void
+project4_lock_rec_insert_to_tail(
+	lock_t *in_lock,   /*!< in: lock to be insert */
+	ulint	rec_fold)  /*!< in: rec_fold of the page */
+{
+	//Jihye : this part should add lock to lock list by CAS
+	hash_table_t*		hash;
+	hash_cell_t*		cell;
+	lock_t*				node;
+
+	if (in_lock == NULL) {
+		return;
+	}
+
+	hash = lock_hash_get(in_lock->type_mode);
+	cell = hash_get_nth_cell(hash,
+			hash_calc_hash(rec_fold, hash));
+	node = (lock_t *) cell->node;
+	if (node != in_lock) {
+		cell->node = in_lock;
+		in_lock->hash = node;
+	}
+}
+
 /**
 Add the lock to the record lock hash and the transaction's lock list
 @param[in,out] lock	Newly created record lock to add to the rec hash
@@ -1967,7 +1992,7 @@ void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
 
 	if (add_to_hash) {
 		++lock->index->table->n_rec_locks;
-		lock_rec_insert_to_head(lock, m_rec_id.fold());
+		project4_lock_rec_insert_to_tail(lock, m_rec_id.fold());
 	}
 
 	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
