@@ -1930,6 +1930,8 @@ project4_lock_rec_insert_to_tail(
 	hash_table_t*		hash;
 	hash_cell_t*		cell;
 	lock_t*				node;
+	lock_t*				tail;
+	lock_t*				prev_rec_lock;
 
 	if (in_lock == NULL) {
 		return;
@@ -1938,11 +1940,24 @@ project4_lock_rec_insert_to_tail(
 	hash = lock_hash_get(in_lock->type_mode);
 	cell = hash_get_nth_cell(hash,
 			hash_calc_hash(rec_fold, hash));
-	node = (lock_t *) cell->node;
-	if (node != in_lock) {
-		cell->node = in_lock;
-		in_lock->hash = node;
+	while(true){
+		tail = (lock_t *) cell->tail;
+
+		if(tail == NULL){
+			if(!__sync_bool_compare_and_swap(&tail, NULL, in_lock)){
+				continue;
+			}
+			break;
+		} else {
+			prev_rec_lock = tail;
+			if(!__sync_bool_compare_and_swap(&tail, tail, in_lock)){
+				continue;
+			}
+			prev_rec_lock->hash = in_lock;
+			break;
+		}
 	}
+	ib::info() << "rec_lock " << in_lock;
 }
 
 /**
@@ -2008,9 +2023,10 @@ Create a new lock.
 lock_t*
 RecLock::create(trx_t* trx, bool owns_trx_mutex, bool add_to_hash, const lock_prdt_t* prdt)
 {
-	//return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
+ 	//return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
 	return project4_create(NULL, trx, owns_trx_mutex, add_to_hash, true);
 }
+
 lock_t*
 RecLock::create(
 	lock_t* const c_lock,
@@ -3219,6 +3235,8 @@ lock_rec_dequeue_from_page(
 	in_lock->index->table->n_rec_locks--;
 
 	lock_hash = lock_hash_get(in_lock->type_mode);
+
+	//Jihye : HASH_DELETE should be changed
 
 	HASH_DELETE(lock_t, hash, lock_hash,
 		    lock_rec_fold(space, page_no), in_lock);
@@ -5304,8 +5322,13 @@ lock_release(
 
 		if (lock_get_type_low(lock) == LOCK_REC) {
 
+			//Jihye : record lock in here
+			ib::info() << "release " << lock;
+
 			lock_rec_dequeue_from_page(lock);
+
 		} else {
+
 			dict_table_t*	table;
 
 			table = lock->un_member.tab_lock.table;
@@ -5327,9 +5350,11 @@ lock_release(
 			/* Release the mutex for a while, so that we
 			do not monopolize it */
 
-			lock_mutex_exit();
+			//Jihye : remove global lock
 
-			lock_mutex_enter();
+			//lock_mutex_exit();
+
+			//lock_mutex_enter();
 
 			count = 0;
 		}
@@ -7723,7 +7748,8 @@ lock_trx_release_locks(
 
 		/* The transition of trx->state to TRX_STATE_COMMITTED_IN_MEMORY
 		is protected by both the lock_sys->mutex and the trx->mutex. */
-		lock_mutex_enter();
+		
+		//lock_mutex_enter();
 	}
 
 	trx_mutex_enter(trx);
@@ -7750,7 +7776,7 @@ lock_trx_release_locks(
 
 		ut_a(release_lock);
 
-		lock_mutex_exit();
+		//lock_mutex_exit();
 
 		while (trx_is_referenced(trx)) {
 
@@ -7767,7 +7793,7 @@ lock_trx_release_locks(
 
 		trx_mutex_exit(trx);
 
-		lock_mutex_enter();
+		//lock_mutex_enter();
 
 		trx_mutex_enter(trx);
 	}
@@ -7793,7 +7819,7 @@ lock_trx_release_locks(
 
 		lock_release(trx);
 
-		lock_mutex_exit();
+		//lock_mutex_exit();
 	}
 
 	trx->lock.n_rec_locks = 0;
