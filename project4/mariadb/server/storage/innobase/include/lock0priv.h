@@ -746,6 +746,14 @@ public:
 		bool		add_to_hash,
 		const lock_prdt_t*
 				prdt = NULL);
+
+	lock_t* project4_create(lock_t* const	c_lock,
+		trx_t*		trx,
+		bool		owns_trx_mutex,
+		bool		add_to_hash,
+		bool		project4);
+
+
 	/**
 	Check of the lock is on m_rec_id.
 	@param[in] lock			Lock to compare with

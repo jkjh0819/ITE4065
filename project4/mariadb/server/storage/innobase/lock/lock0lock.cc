@@ -1971,7 +1971,8 @@ Create a new lock.
 lock_t*
 RecLock::create(trx_t* trx, bool owns_trx_mutex, bool add_to_hash, const lock_prdt_t* prdt)
 {
-	return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
+	//return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
+	return project4_create(NULL, trx, owns_trx_mutex, add_to_hash, true);
 }
 lock_t*
 RecLock::create(
@@ -2101,6 +2102,36 @@ RecLock::create(
 #ifdef WITH_WSREP
 	}
 #endif /* WITH_WSREP */
+
+	return(lock);
+}
+
+lock_t* 
+RecLock::project4_create(lock_t* const	c_lock,
+		trx_t*		trx,
+		bool		owns_trx_mutex,
+		bool		add_to_hash,
+		bool		project4)
+{
+	ut_ad(owns_trx_mutex == trx_mutex_own(trx));
+
+	/* Create the explicit lock instance and initialise it. */
+
+	lock_t*	lock = lock_alloc(trx, m_index, m_mode, m_rec_id, m_size);
+
+	/* Ensure that another transaction doesn't access the trx
+	lock state and lock data structures while we are adding the
+	lock and changing the transaction state to LOCK_WAIT */
+
+	if (!owns_trx_mutex) {
+		trx_mutex_enter(trx);
+	}
+
+	lock_add(lock, add_to_hash);
+
+	if (!owns_trx_mutex) {
+		trx_mutex_exit(trx);
+	}
 
 	return(lock);
 }
@@ -5235,7 +5266,7 @@ lock_release(
 		ut_d(lock_check_dict_lock(lock));
 
 		if (lock_get_type_low(lock) == LOCK_REC) {
-			
+
 			lock_rec_dequeue_from_page(lock);
 		} else {
 			dict_table_t*	table;
