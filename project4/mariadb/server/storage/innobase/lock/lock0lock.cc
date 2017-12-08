@@ -1786,6 +1786,8 @@ RecLock::project4_lock_alloc(
 
 	lock->type_mode = uint32_t(LOCK_REC | (mode & ~LOCK_TYPE_MASK));
 
+	lock->hash = NULL;
+
 	lock_rec_t&	rec_lock = lock->un_member.rec_lock;
 
 	rec_lock.space = rec_id.m_space_id;
@@ -1983,7 +1985,8 @@ project4_lock_rec_insert_to_tail(
 			
 		}
 	}
-	ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
+	//ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
+	ib::info() << cell << " has prev " << tail << ", new tail is " << in_lock;
 }
 
 /**
@@ -3495,7 +3498,7 @@ project4_lock_rec_dequeue_from_page(
 					get their lock requests granted,
 					if they are now qualified to it */
 {
-	ib::info() <<  "project4_lock_rec_dequeue_from_page";
+	//ib::info() <<  "project4_lock_rec_dequeue_from_page";
 	ulint		space;
 	ulint		page_no;
 	lock_t*		lock;
@@ -3515,97 +3518,83 @@ project4_lock_rec_dequeue_from_page(
 
 	lock_hash = lock_hash_get(in_lock->type_mode);
 
-	ib::info() << "try release " <<in_lock << " of hash " << lock_hash;
-	ib::info() << "space is " << space << " page_no is " << page_no;
+	//ib::info() << "try release " <<in_lock << " of hash " << lock_hash;
+	//ib::info() << "space is " << space << " page_no is " << page_no;
 
 	hash_cell_t*    cell3333;
 	lock_t*       struct3333;
 
 	cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
 
-	ib::info() << "at cell " << cell3333;
-
 	struct3333 = (lock_t*) cell3333->node;
 
-	ib::info() << "cell's head is " << struct3333; 
+	ib::info() << "at cell " << cell3333 << " head is " << struct3333; 
+	
+	//Jihye : should check
+	//if(struct3333 == NULL)
+	//	return;
 
-	while (struct3333->hash != in_lock || struct3333 == NULL) {
+	while (struct3333->hash != NULL && struct3333->hash != in_lock) {
 
 		struct3333 = (lock_t*) struct3333->hash;
 		//ut_a(struct3333);
 	}
 
-	if(struct3333 != NULL){
-		struct3333->hash = in_lock->hash;
-		ut_free(in_lock);
+	ib::info() << "pred is " << struct3333 << " remove is " << in_lock << " next is " << in_lock->hash;
+
+	if(struct3333->hash == NULL){
+		cell3333->node = NULL;
+	} else {
+		struct3333->hash = in_lock->hash;		
 	}
-	
-	/*
-	do {
-		hash_cell_t*    cell3333;
-		lock_t*       struct3333;
-
-		HASH_ASSERT_OWN(lock_hash, lock_rec_fold(space, page_no))
-
-		cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
-		if (cell3333->node == in_lock) {
-			HASH_ASSERT_VALID(in_lock->hash);
-			cell3333->node = in_lock->hash;
-		} else {
-			struct3333 = (lock_t*) cell3333->node;
-
-			while (struct3333->hash != in_lock) {
-
-				struct3333 = (lock_t*) struct3333->hash;
-				ut_a(struct3333);
-			}
-
-				struct3333->hash = in_lock->hash;
-			}
-		HASH_INVALIDATE(in_lock, hash);
-	} while (0);*/
-
 
 	UT_LIST_REMOVE(trx_lock->trx_locks, in_lock);
 
 	if (innodb_lock_schedule_algorithm
-		== INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS ||
-		thd_is_replication_slave_thread(in_lock->trx->mysql_thd)) {
+	== INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS ||
+	thd_is_replication_slave_thread(in_lock->trx->mysql_thd)) {
 
-		/* Check if waiting locks in the queue can now be granted:
-		grant locks if there are no conflicting locks ahead. Stop at
-		the first X lock that is waiting or has been granted. */
+		ib::info() << "in if";
+
+	/* Check if waiting locks in the queue can now be granted:
+	grant locks if there are no conflicting locks ahead. Stop at
+	the first X lock that is waiting or has been granted. */
 
 		for (lock = lock_rec_get_first_on_page_addr(lock_hash, space,
-							    page_no);
+						    page_no);
 			 lock != NULL;
 			 lock = lock_rec_get_next_on_page(lock)) {
 
 			if (lock_get_wait(lock)
 				&& !lock_rec_has_to_wait_in_queue(lock)) {
 
-				/* Grant the lock */
-				ut_ad(lock->trx != in_lock->trx);
+					/* Grant the lock */
+					ut_ad(lock->trx != in_lock->trx);
 
-				bool exit_trx_mutex = false;
+					bool exit_trx_mutex = false;
 
-				if (lock->trx->abort_type != TRX_SERVER_ABORT) {
-					ut_ad(trx_mutex_own(lock->trx));
-					trx_mutex_exit(lock->trx);
-					exit_trx_mutex = true;
+					if (lock->trx->abort_type != TRX_SERVER_ABORT) {
+						ut_ad(trx_mutex_own(lock->trx));
+						trx_mutex_exit(lock->trx);
+						exit_trx_mutex = true;
+					}
+
+					lock_grant(lock, false);
+
+					if (exit_trx_mutex) {
+						ut_ad(!trx_mutex_own(lock->trx));
+						trx_mutex_enter(lock->trx);
+					}
 				}
-
-				lock_grant(lock, false);
-
-				if (exit_trx_mutex) {
-					ut_ad(!trx_mutex_own(lock->trx));
-					trx_mutex_enter(lock->trx);
-				}
-			}
 		}
-		} else {
-			lock_grant_and_move_on_page(lock_hash, space, page_no);
-		}
+	} else {
+		lock_grant_and_move_on_page(lock_hash, space, page_no);
+	}
+
+	ut_free(in_lock);
+	
+	
+	//ib::info() << "after free";
 }
 /*************************************************************//**
 Removes a record lock request, waiting or granted, from the queue. */
