@@ -1914,7 +1914,6 @@ trx_commit_low(
 
 	/* undo_no is non-zero if we're doing the final commit. */
 	if (trx->fts_trx != NULL && trx->undo_no != 0) {
-
 		//Jihye : about read-only workload, this part is not executed.
 
 		dberr_t	error;

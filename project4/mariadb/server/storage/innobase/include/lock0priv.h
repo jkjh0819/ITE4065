@@ -140,6 +140,8 @@ struct lock_t {
 					LOCK_INSERT_INTENTION,
 					wait flag, ORed */
 
+
+
 	/** Determine if the lock object is a record lock.
 	@return true if record lock, false otherwise. */
 	bool is_record_lock() const
@@ -768,6 +770,13 @@ public:
 	@param[in] size		Size of the lock + bitmap requested
 	@return a record lock instance */
 	static lock_t* lock_alloc(
+		trx_t*		trx,
+		dict_index_t*	index,
+		ulint		mode,
+		const RecID&	rec_id,
+		ulint		size);
+
+	static lock_t* project4_lock_alloc(
 		trx_t*		trx,
 		dict_index_t*	index,
 		ulint		mode,

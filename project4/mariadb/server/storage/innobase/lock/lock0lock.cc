@@ -1768,6 +1768,33 @@ RecLock::lock_alloc(
 	return(lock);
 }
 
+lock_t*
+RecLock::project4_lock_alloc(
+	trx_t*		trx,
+	dict_index_t*	index,
+	ulint		mode,
+	const RecID&	rec_id,
+	ulint		size)
+{
+	//ib::info() << "project4_lock_alloc";
+
+	lock_t*	lock = static_cast<lock_t*>(ut_malloc_nokey(sizeof(lock_t)));
+
+	lock->trx = trx;
+
+	lock->index = index;
+
+	lock->type_mode = uint32_t(LOCK_REC | (mode & ~LOCK_TYPE_MASK));
+
+	lock_rec_t&	rec_lock = lock->un_member.rec_lock;
+
+	rec_lock.space = rec_id.m_space_id;
+
+	rec_lock.page_no = rec_id.m_page_no;
+
+	return(lock);
+}
+
 /*********************************************************************//**
 Check if lock1 has higher priority than lock2.
 NULL has lowest priority.
@@ -1956,7 +1983,7 @@ project4_lock_rec_insert_to_tail(
 			
 		}
 	}
-	//ib::info() << cell << " has prev " << tail;
+	ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
 }
 
 /**
@@ -1998,6 +2025,7 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 	}
 
 	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
+	ib::info() << lock << " insert";
 }
 
 void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
@@ -2170,7 +2198,7 @@ RecLock::project4_create(lock_t* const	c_lock,
 
 	/* Create the explicit lock instance and initialise it. */
 
-	lock_t*	lock = lock_alloc(trx, m_index, m_mode, m_rec_id, m_size);
+	lock_t*	lock = project4_lock_alloc(trx, m_index, m_mode, m_rec_id, m_size);
 
 	/* Ensure that another transaction doesn't access the trx
 	lock state and lock data structures while we are adding the
@@ -2845,6 +2873,7 @@ lock_rec_lock(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
+	ib::info() << "lock_rec_lock";
 	ut_ad(lock_mutex_own());
 
 	ut_ad(!srv_read_only_mode);
@@ -3466,6 +3495,7 @@ project4_lock_rec_dequeue_from_page(
 					get their lock requests granted,
 					if they are now qualified to it */
 {
+	ib::info() <<  "project4_lock_rec_dequeue_from_page";
 	ulint		space;
 	ulint		page_no;
 	lock_t*		lock;
@@ -3484,8 +3514,33 @@ project4_lock_rec_dequeue_from_page(
 	in_lock->index->table->n_rec_locks--;
 
 	lock_hash = lock_hash_get(in_lock->type_mode);
-	//ib::info() << in_lock << " release";
 
+	ib::info() << "try release " <<in_lock << " of hash " << lock_hash;
+	ib::info() << "space is " << space << " page_no is " << page_no;
+
+	hash_cell_t*    cell3333;
+	lock_t*       struct3333;
+
+	cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
+
+	ib::info() << "at cell " << cell3333;
+
+	struct3333 = (lock_t*) cell3333->node;
+
+	ib::info() << "cell's head is " << struct3333; 
+
+	while (struct3333->hash != in_lock || struct3333 == NULL) {
+
+		struct3333 = (lock_t*) struct3333->hash;
+		//ut_a(struct3333);
+	}
+
+	if(struct3333 != NULL){
+		struct3333->hash = in_lock->hash;
+		ut_free(in_lock);
+	}
+	
+	/*
 	do {
 		hash_cell_t*    cell3333;
 		lock_t*       struct3333;
@@ -3508,12 +3563,10 @@ project4_lock_rec_dequeue_from_page(
 				struct3333->hash = in_lock->hash;
 			}
 		HASH_INVALIDATE(in_lock, hash);
-	} while (0);
+	} while (0);*/
+
 
 	UT_LIST_REMOVE(trx_lock->trx_locks, in_lock);
-
-	MONITOR_INC(MONITOR_RECLOCK_REMOVED);
-	MONITOR_DEC(MONITOR_NUM_RECLOCK);
 
 	if (innodb_lock_schedule_algorithm
 		== INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS ||
@@ -5596,7 +5649,6 @@ lock_release(
 			//lock_rec_dequeue_from_page(lock);
 
 		} else {
-
 			dict_table_t*	table;
 
 			table = lock->un_member.tab_lock.table;
@@ -7537,7 +7589,7 @@ lock_clust_rec_read_check_and_lock(
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	ib::info() << "lock_clust_rec_read_check_and_lock";
+	//ib::info() << "lock_clust_rec_read_check_and_lock";
 	dberr_t	err;
 	ulint	heap_no;
 
@@ -7988,6 +8040,7 @@ lock_trx_release_locks(
 /*===================*/
 	trx_t*	trx)	/*!< in/out: transaction */
 {
+	//ib::info() << "lock_trx_release_locks";
 	check_trx_state(trx);
 
 	if (trx_state_eq(trx, TRX_STATE_PREPARED)) {
