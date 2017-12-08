@@ -750,8 +750,7 @@ public:
 	lock_t* project4_create(lock_t* const	c_lock,
 		trx_t*		trx,
 		bool		owns_trx_mutex,
-		bool		add_to_hash,
-		bool		project4);
+		bool		add_to_hash);
 
 
 	/**

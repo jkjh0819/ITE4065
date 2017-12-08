@@ -1916,7 +1916,6 @@ lock_rec_insert_to_head(
 	node = (lock_t *) cell->node;
 	if (node != in_lock) {
 		cell->node = in_lock;
-		in_lock->hash = node;
 	}
 }
 
@@ -1945,18 +1944,19 @@ project4_lock_rec_insert_to_tail(
 
 		if(tail == NULL){
 			if(__sync_bool_compare_and_swap(&cell->tail, NULL, in_lock)){
+				cell->node = in_lock;
 				break;
 			}
 			
 		} else {
-			prev_rec_lock = tail;
 			if(__sync_bool_compare_and_swap(&cell->tail, tail, in_lock)){
-				prev_rec_lock->hash = in_lock;
+				tail->hash = in_lock;
 				break;
 			}
 			
 		}
 	}
+	//ib::info() << cell << " has prev " << tail;
 }
 
 /**
@@ -2006,6 +2006,7 @@ void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
 
 	if (add_to_hash) {
 		++lock->index->table->n_rec_locks;
+		//ib::info() << lock <<" add";
 		project4_lock_rec_insert_to_tail(lock, m_rec_id.fold());
 	}
 
@@ -2022,8 +2023,8 @@ Create a new lock.
 lock_t*
 RecLock::create(trx_t* trx, bool owns_trx_mutex, bool add_to_hash, const lock_prdt_t* prdt)
 {
- 	//return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
-	return project4_create(NULL, trx, owns_trx_mutex, add_to_hash, true);
+ 	return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
+	//return project4_create(NULL, trx, owns_trx_mutex, add_to_hash, true);
 }
 
 lock_t*
@@ -2162,9 +2163,9 @@ lock_t*
 RecLock::project4_create(lock_t* const	c_lock,
 		trx_t*		trx,
 		bool		owns_trx_mutex,
-		bool		add_to_hash,
-		bool		project4)
+		bool		add_to_hash)
 {
+	//ib::info() << "project4 create";
 	ut_ad(owns_trx_mutex == trx_mutex_own(trx));
 
 	/* Create the explicit lock instance and initialise it. */
@@ -2591,6 +2592,58 @@ lock_rec_lock_fast(
 	return(status);
 }
 
+UNIV_INLINE
+lock_rec_req_status
+project4_lock_rec_lock_fast(
+/*===============*/
+	bool			impl,	/*!< in: if TRUE, no lock is set
+					if no wait is necessary: we
+					assume that the caller will
+					set an implicit lock */
+	ulint			mode,	/*!< in: lock mode: LOCK_X or
+					LOCK_S possibly ORed to either
+					LOCK_GAP or LOCK_REC_NOT_GAP */
+	const buf_block_t*	block,	/*!< in: buffer block containing
+					the record */
+	ulint			heap_no,/*!< in: heap number of record */
+	dict_index_t*		index,	/*!< in: index of record */
+	que_thr_t*		thr)	/*!< in: query thread */
+{
+	//ib::info() << "project 4 lock_rec_lock_fast";
+
+	//Jihye : make as annotation for removing global lock
+	//ut_ad(lock_mutex_own());
+	ut_ad(!srv_read_only_mode);
+	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
+	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
+	ut_ad((LOCK_MODE_MASK & mode) != LOCK_X
+	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX)
+	      || srv_read_only_mode);
+	ut_ad((LOCK_MODE_MASK & mode) == LOCK_S
+	      || (LOCK_MODE_MASK & mode) == LOCK_X);
+	ut_ad(mode - (LOCK_MODE_MASK & mode) == LOCK_GAP
+	      || mode - (LOCK_MODE_MASK & mode) == 0
+	      || mode - (LOCK_MODE_MASK & mode) == LOCK_REC_NOT_GAP);
+	ut_ad(dict_index_is_clust(index) || !dict_index_is_online_ddl(index));
+
+	DBUG_EXECUTE_IF("innodb_report_deadlock", return(LOCK_REC_FAIL););
+
+	trx_t*	trx = thr_get_trx(thr);
+
+	lock_rec_req_status	status = LOCK_REC_SUCCESS;
+
+	RecLock	rec_lock(index, block, heap_no, mode);
+
+	trx_mutex_enter(trx);
+	
+	rec_lock.project4_create(NULL, trx, true, true);
+
+	trx_mutex_exit(trx);
+
+	status = LOCK_REC_SUCCESS_CREATED;
+	
+	return(status);
+}
 /*********************************************************************//**
 This is the general, and slower, routine for locking a record. This is a
 low-level function which does NOT look at implicit locks! Checks lock
@@ -2615,6 +2668,90 @@ lock_rec_lock_slow(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
+	//Jihye : make as annotation for removing global lock
+	//ut_ad(lock_mutex_own());
+	ut_ad(!srv_read_only_mode);
+	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
+	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
+	ut_ad((LOCK_MODE_MASK & mode) != LOCK_X
+	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
+	ut_ad((LOCK_MODE_MASK & mode) == LOCK_S
+	      || (LOCK_MODE_MASK & mode) == LOCK_X);
+	ut_ad(mode - (LOCK_MODE_MASK & mode) == LOCK_GAP
+	      || mode - (LOCK_MODE_MASK & mode) == 0
+	      || mode - (LOCK_MODE_MASK & mode) == LOCK_REC_NOT_GAP);
+	ut_ad(dict_index_is_clust(index) || !dict_index_is_online_ddl(index));
+
+	DBUG_EXECUTE_IF("innodb_report_deadlock", return(DB_DEADLOCK););
+
+	dberr_t	err;
+	trx_t*	trx = thr_get_trx(thr);
+
+	trx_mutex_enter(trx);
+
+	if (lock_rec_has_expl(mode, block, heap_no, trx)) {
+		/* The trx already has a strong enough lock on rec: do
+		nothing */
+
+		err = DB_SUCCESS;
+
+	} else {
+
+		const lock_t* wait_for = lock_rec_other_has_conflicting(
+			mode, block, heap_no, trx);
+
+		if (wait_for != NULL) {
+			//Jihye : about read-only workload, this part is not executed.
+
+			/* If another transaction has a non-gap conflicting
+			request in the queue, as this transaction does not
+			have a lock strong enough already granted on the
+			record, we may have to wait. */
+
+			RecLock	rec_lock(thr, index, block, heap_no, mode);
+
+			err = rec_lock.add_to_waitq(wait_for);
+
+		} else if (!impl) {
+			/* Set the requested lock on the record, note that
+			we already own the transaction mutex. */
+
+
+			lock_rec_add_to_queue(
+				LOCK_REC | mode, block, heap_no, index, trx,
+				true);
+
+			err = DB_SUCCESS_LOCKED_REC;
+		} else {
+			//Jihye : about read-only workload, this part is not executed.
+
+			err = DB_SUCCESS;
+		}
+	}
+
+	trx_mutex_exit(trx);
+
+	return(err);
+}
+
+static
+dberr_t
+project4_lock_rec_lock_slow(
+/*===============*/
+	ibool			impl,	/*!< in: if TRUE, no lock is set
+					if no wait is necessary: we
+					assume that the caller will
+					set an implicit lock */
+	ulint			mode,	/*!< in: lock mode: LOCK_X or
+					LOCK_S possibly ORed to either
+					LOCK_GAP or LOCK_REC_NOT_GAP */
+	const buf_block_t*	block,	/*!< in: buffer block containing
+					the record */
+	ulint			heap_no,/*!< in: heap number of record */
+	dict_index_t*		index,	/*!< in: index of record */
+	que_thr_t*		thr)	/*!< in: query thread */
+{
+	ib::info() << "project4 lock slow";
 	//Jihye : make as annotation for removing global lock
 	//ut_ad(lock_mutex_own());
 	ut_ad(!srv_read_only_mode);
@@ -2708,9 +2845,58 @@ lock_rec_lock(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
+	ut_ad(lock_mutex_own());
+
+	ut_ad(!srv_read_only_mode);
+	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
+	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
+	ut_ad((LOCK_MODE_MASK & mode) != LOCK_X
+	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
+	ut_ad((LOCK_MODE_MASK & mode) == LOCK_S
+	      || (LOCK_MODE_MASK & mode) == LOCK_X);
+	ut_ad(mode - (LOCK_MODE_MASK & mode) == LOCK_GAP
+	      || mode - (LOCK_MODE_MASK & mode) == LOCK_REC_NOT_GAP
+	      || mode - (LOCK_MODE_MASK & mode) == 0);
+	ut_ad(dict_index_is_clust(index) || !dict_index_is_online_ddl(index));
+
+	/* We try a simplified and faster subroutine for the most
+	common cases */
+
+	switch (lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
+	case LOCK_REC_SUCCESS:
+		return(DB_SUCCESS);
+	case LOCK_REC_SUCCESS_CREATED:
+		return(DB_SUCCESS_LOCKED_REC);
+	case LOCK_REC_FAIL:
+		return(lock_rec_lock_slow(impl, mode, block,
+					  heap_no, index, thr));
+	}
+
+	ut_error;
+	return(DB_ERROR);
+}
+
+static
+dberr_t
+project4_lock_rec_lock(
+/*==========*/
+	bool			impl,	/*!< in: if true, no lock is set
+					if no wait is necessary: we
+					assume that the caller will
+					set an implicit lock */
+	ulint			mode,	/*!< in: lock mode: LOCK_X or
+					LOCK_S possibly ORed to either
+					LOCK_GAP or LOCK_REC_NOT_GAP */
+	const buf_block_t*	block,	/*!< in: buffer block containing
+					the record */
+	ulint			heap_no,/*!< in: heap number of record */
+	dict_index_t*		index,	/*!< in: index of record */
+	que_thr_t*		thr)	/*!< in: query thread */
+{
+	//ib::info() << "project4 lock_rec_lock";
 	//Jihye : because lock_enter_mutex will be disappeared, make annotation
 	//ut_ad(lock_mutex_own());
-	
+
 	ut_ad(!srv_read_only_mode);
 	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
@@ -2728,35 +2914,18 @@ lock_rec_lock(
 
 	//Jihye : use atomic operation for add lock, make annotation
 
-	switch (lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
+	switch (project4_lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
 	case LOCK_REC_SUCCESS:
 		return(DB_SUCCESS);
 	case LOCK_REC_SUCCESS_CREATED:
 		return(DB_SUCCESS_LOCKED_REC);
 	case LOCK_REC_FAIL:
-		return(lock_rec_lock_slow(impl, mode, block,
+		return(project4_lock_rec_lock_slow(impl, mode, block,
 					  heap_no, index, thr));
 	}
 
 	ut_error;
 	return(DB_ERROR);
-
-	//Jihye : make new record lock
-	//RecLock newLock(thr, index, block, heap_no, mode);
-
-	/*whlie(true){
-		Atomic<RecLock* > tailLock = locksys->rec_hash->array[index].tail.load();
-
-		if(tail_lock == null){
-			if(locksys->rec_hash->array[index].tail.compare_exchange_strong(tailLock, newLock)){
-				break;
-			}
-		} else {
-
-		}
-	}*/
-
-	//return(DB_SUCCESS_LOCKED_REC);
 }
 
 /*********************************************************************//**
@@ -3285,6 +3454,106 @@ lock_rec_dequeue_from_page(
 		}
 }
 
+
+static
+void
+project4_lock_rec_dequeue_from_page(
+/*=======================*/
+	lock_t*		in_lock)	/*!< in: record lock object: all
+					record locks which are contained in
+					this lock object are removed;
+					transactions waiting behind will
+					get their lock requests granted,
+					if they are now qualified to it */
+{
+	ulint		space;
+	ulint		page_no;
+	lock_t*		lock;
+	trx_lock_t*	trx_lock;
+	hash_table_t*	lock_hash;
+
+	ut_ad(lock_get_type_low(in_lock) == LOCK_REC);
+	/* We may or may not be holding in_lock->trx->mutex here. */
+
+	trx_lock = &in_lock->trx->lock;
+
+	space = in_lock->un_member.rec_lock.space;
+	page_no = in_lock->un_member.rec_lock.page_no;
+
+	ut_ad(in_lock->index->table->n_rec_locks > 0);
+	in_lock->index->table->n_rec_locks--;
+
+	lock_hash = lock_hash_get(in_lock->type_mode);
+	//ib::info() << in_lock << " release";
+
+	do {
+		hash_cell_t*    cell3333;
+		lock_t*       struct3333;
+
+		HASH_ASSERT_OWN(lock_hash, lock_rec_fold(space, page_no))
+
+		cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
+		if (cell3333->node == in_lock) {
+			HASH_ASSERT_VALID(in_lock->hash);
+			cell3333->node = in_lock->hash;
+		} else {
+			struct3333 = (lock_t*) cell3333->node;
+
+			while (struct3333->hash != in_lock) {
+
+				struct3333 = (lock_t*) struct3333->hash;
+				ut_a(struct3333);
+			}
+
+				struct3333->hash = in_lock->hash;
+			}
+		HASH_INVALIDATE(in_lock, hash);
+	} while (0);
+
+	UT_LIST_REMOVE(trx_lock->trx_locks, in_lock);
+
+	MONITOR_INC(MONITOR_RECLOCK_REMOVED);
+	MONITOR_DEC(MONITOR_NUM_RECLOCK);
+
+	if (innodb_lock_schedule_algorithm
+		== INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS ||
+		thd_is_replication_slave_thread(in_lock->trx->mysql_thd)) {
+
+		/* Check if waiting locks in the queue can now be granted:
+		grant locks if there are no conflicting locks ahead. Stop at
+		the first X lock that is waiting or has been granted. */
+
+		for (lock = lock_rec_get_first_on_page_addr(lock_hash, space,
+							    page_no);
+			 lock != NULL;
+			 lock = lock_rec_get_next_on_page(lock)) {
+
+			if (lock_get_wait(lock)
+				&& !lock_rec_has_to_wait_in_queue(lock)) {
+
+				/* Grant the lock */
+				ut_ad(lock->trx != in_lock->trx);
+
+				bool exit_trx_mutex = false;
+
+				if (lock->trx->abort_type != TRX_SERVER_ABORT) {
+					ut_ad(trx_mutex_own(lock->trx));
+					trx_mutex_exit(lock->trx);
+					exit_trx_mutex = true;
+				}
+
+				lock_grant(lock, false);
+
+				if (exit_trx_mutex) {
+					ut_ad(!trx_mutex_own(lock->trx));
+					trx_mutex_enter(lock->trx);
+				}
+			}
+		}
+		} else {
+			lock_grant_and_move_on_page(lock_hash, space, page_no);
+		}
+}
 /*************************************************************//**
 Removes a record lock request, waiting or granted, from the queue. */
 void
@@ -5322,9 +5591,9 @@ lock_release(
 		if (lock_get_type_low(lock) == LOCK_REC) {
 
 			//Jihye : record lock in here
-			ib::info() << "release " << lock;
 
-			lock_rec_dequeue_from_page(lock);
+			project4_lock_rec_dequeue_from_page(lock);
+			//lock_rec_dequeue_from_page(lock);
 
 		} else {
 
@@ -7216,7 +7485,7 @@ lock_sec_rec_read_check_and_lock(
 		lock_rec_convert_impl_to_expl(block, rec, index, offsets);
 	}
 
-	//lock_mutex_enter();
+	lock_mutex_enter();
 
 	ut_ad(mode != LOCK_X
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
@@ -7228,7 +7497,7 @@ lock_sec_rec_read_check_and_lock(
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
 
-	//lock_mutex_exit();
+	lock_mutex_exit();
 
 	ut_ad(lock_rec_queue_validate(FALSE, block, rec, index, offsets));
 
@@ -7268,6 +7537,7 @@ lock_clust_rec_read_check_and_lock(
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
+	ib::info() << "lock_clust_rec_read_check_and_lock";
 	dberr_t	err;
 	ulint	heap_no;
 
@@ -7293,18 +7563,18 @@ lock_clust_rec_read_check_and_lock(
 	}
 
 
-	lock_mutex_enter();
+	//lock_mutex_enter();
 
 	ut_ad(mode != LOCK_X
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
 	ut_ad(mode != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
 
-	err = lock_rec_lock(FALSE, mode | gap_mode, block, heap_no, index, thr);
+	err = project4_lock_rec_lock(FALSE, mode | gap_mode, block, heap_no, index, thr);
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
 
-	lock_mutex_exit();
+	//lock_mutex_exit();
 
 	ut_ad(lock_rec_queue_validate(FALSE, block, rec, index, offsets));
 
