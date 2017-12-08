@@ -1944,20 +1944,19 @@ project4_lock_rec_insert_to_tail(
 		tail = (lock_t *) cell->tail;
 
 		if(tail == NULL){
-			if(!__sync_bool_compare_and_swap(&tail, NULL, in_lock)){
-				continue;
+			if(__sync_bool_compare_and_swap(&cell->tail, NULL, in_lock)){
+				break;
 			}
-			break;
+			
 		} else {
 			prev_rec_lock = tail;
-			if(!__sync_bool_compare_and_swap(&tail, tail, in_lock)){
-				continue;
+			if(__sync_bool_compare_and_swap(&cell->tail, tail, in_lock)){
+				prev_rec_lock->hash = in_lock;
+				break;
 			}
-			prev_rec_lock->hash = in_lock;
-			break;
+			
 		}
 	}
-	ib::info() << "rec_lock " << in_lock;
 }
 
 /**
