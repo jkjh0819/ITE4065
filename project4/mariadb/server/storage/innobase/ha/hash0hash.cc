@@ -114,8 +114,8 @@ hash_create(
 
 	for(int i = 0; i < prime; i ++){
 		array[i].epoch = 0;
-		array[i].node = NULL;
-		array[i].tail = array[i].node;
+		array[i].head = NULL;
+		array[i].tail = array[i].head;
 	}
 
 	/* The default type of hash_table is HASH_TABLE_SYNC_NONE i.e.:

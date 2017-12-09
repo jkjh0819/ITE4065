@@ -470,6 +470,7 @@ hash_unlock_x_all_but(
 struct hash_cell_t{
 	ulint epoch;
 	void*	tail;
+	void* 	head;
 	void*	node;	/*!< hash chain node, NULL if none */
 };
 
