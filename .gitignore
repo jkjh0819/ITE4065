@@ -1,0 +1,6 @@
+perf.*
+*.o
+*.work
+*.result
+*.init
+.DS_Store
