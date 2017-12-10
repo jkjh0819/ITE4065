@@ -113,7 +113,6 @@ hash_create(
 		ut_malloc_nokey(sizeof(hash_cell_t) * prime));
 
 	for(int i = 0; i < prime; i ++){
-		array[i].epoch = 0;
 		array[i].head = NULL;
 		array[i].tail = array[i].head;
 	}

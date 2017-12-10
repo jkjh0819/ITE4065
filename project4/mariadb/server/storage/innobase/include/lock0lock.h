@@ -980,6 +980,10 @@ struct lock_sys_t{
 
 	bool		timeout_thread_active;	/*!< True if the timeout thread
 						is running */
+
+	//Jihye : gclist
+	hash_cell_t*	gclist;
+	bool 		gclist_state; /* if true, a thread execute physical deletion, other thread pass */
 };
 
 /*************************************************************//**

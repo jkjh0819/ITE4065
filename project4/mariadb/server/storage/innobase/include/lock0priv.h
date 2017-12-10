@@ -140,7 +140,11 @@ struct lock_t {
 					LOCK_INSERT_INTENTION,
 					wait flag, ORed */
 
+	//Jihye : for physical delete, mark delete time
+	time_t 		timestamp;
 
+	//Jihye : True - alive, False - logical delete
+	bool 		state;
 
 	/** Determine if the lock object is a record lock.
 	@return true if record lock, false otherwise. */

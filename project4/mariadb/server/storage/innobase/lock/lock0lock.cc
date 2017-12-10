@@ -47,12 +47,9 @@ Created 5/7/1996 Heikki Tuuri
 #include "row0mysql.h"
 #include "pars0pars.h"
 
-#include <set>
-
 //Jihye : for atomic operation, add atomic header
 
-#include <atomic>
-#include <fstream>
+#include <limits>
 
 #ifdef WITH_WSREP
 #include <mysql/service_wsrep.h>
@@ -511,6 +508,11 @@ lock_sys_create(
 		lock_latest_err_file = os_file_create_tmpfile(NULL);
 		ut_a(lock_latest_err_file);
 	}
+
+	//Jihye : gclist initialize
+	lock_sys->gclist = static_cast<hash_cell_t*>(ut_malloc_nokey(sizeof(hash_cell_t*)));
+	lock_sys->gclist->head = NULL;
+	lock_sys->gclist->tail = lock_sys->gclist->head;
 }
 
 /** Calculates the fold value of a lock: used in migrating the hash table.
@@ -1795,6 +1797,10 @@ RecLock::project4_lock_alloc(
 
 	rec_lock.page_no = rec_id.m_page_no;
 
+	lock->timestamp = trx->start_time;
+
+	lock->state = TRUE;
+
 	return(lock);
 }
 
@@ -1958,9 +1964,7 @@ project4_lock_rec_insert_to_tail(
 	//Jihye : this part should add lock to lock list by CAS
 	hash_table_t*		hash;
 	hash_cell_t*		cell;
-	lock_t*				node;
-	lock_t*				tail;
-	lock_t*				prev_rec_lock;
+	lock_t*				old_tail;
 
 	if (in_lock == NULL) {
 		return;
@@ -1969,33 +1973,18 @@ project4_lock_rec_insert_to_tail(
 	hash = lock_hash_get(in_lock->type_mode);
 	cell = hash_get_nth_cell(hash,
 			hash_calc_hash(rec_fold, hash));
-	while(true){
-		tail = (lock_t *) cell->tail;
+	
+	old_tail = (lock_t*) __sync_lock_test_and_set(&cell->tail, in_lock);
 
-		if(tail == NULL){
-			if(__sync_bool_compare_and_swap(&cell->tail, NULL, in_lock)){
-				cell->head = in_lock;
-				break;
-			}
-			
-		} else {
-			if(__sync_bool_compare_and_swap(&cell->tail, tail, in_lock)){
-				tail->hash = in_lock;
-				break;
-			}
-			
-		}
+	if(old_tail == NULL){
+		cell->head = in_lock;
+	} else {
+		old_tail->hash = in_lock;
 	}
+
 	//ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
 	//ib::info() << cell << " has prev " << tail << ", new tail is " << in_lock;
-	std::ofstream outFile("output.txt", std::ios::app);
-
-	//ib::info() << "try release " << in_lock <<" at cell " << cell3333 
-	//				<< " head is " << struct3333; 
 	
-	outFile << cell << " has prev " << tail << ", new tail is " << in_lock << std::endl;
-
-	outFile.close();
 }
 
 /**
@@ -2037,7 +2026,6 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 	}
 
 	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
-	ib::info() << lock << " insert";
 }
 
 void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
@@ -3531,40 +3519,64 @@ project4_lock_rec_dequeue_from_page(
 	//ib::info() << "space is " << space << " page_no is " << page_no;
 
 	hash_cell_t*    cell3333;
-	lock_t*       struct3333;
+	lock_t*       cur_lock;
+	lock_t*		  next_lock;
 
 	cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
 
-	struct3333 = (lock_t*) cell3333->head;
+	cur_lock = (lock_t*) cell3333->head;
 
-	std::ofstream outFile("output.txt", std::ios::app);
 
 	//ib::info() << "try release " << in_lock <<" at cell " << cell3333 
-	//				<< " head is " << struct3333; 
-	
-	outFile << "try release " << in_lock <<" at cell " << cell3333 
-					<< " head is " << struct3333 << std::endl; 
+	//				<< " head is " << cur_lock; 
 
-	outFile.close();
+	//ib::info() << lock_sys->gclist->tail << " is tail";
 
-	ut_a(struct3333);
+	ut_a(cur_lock);
 
-	while (struct3333->hash != NULL && struct3333->hash != in_lock) {
+	while (cur_lock->hash != NULL && cur_lock != in_lock) {
 
-		struct3333 = (lock_t*) struct3333->hash;
-		//ut_a(struct3333);
+		
+		// Jihye : at this point, if struct status is deletion mark, cut the next pointer, set epoch?
+		do {
+			next_lock = cur_lock->hash;
+		} while ( next_lock == NULL && cell3333->tail != next_lock);
+
+
+		if(next_lock != NULL && !next_lock->state) {
+			//Jihye : when change cur_lock's next pointer?
+			cur_lock->hash = next_lock->hash; // number 3 -> 1
+
+			lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
+			old_gclist_tail->hash = next_lock;
+			
+			//Jihye : timestamp update, recently latest timestamp saved
+			if(next_lock->timestamp < in_lock->trx->start_time){
+				next_lock->timestamp = in_lock->trx->start_time;
+			}
+
+			cur_lock = cur_lock->hash;
+		} else {
+			//next is not deleted logically
+			cur_lock = next_lock;
+		}
+
+		//ut_a(cur_lock);
 	}
 
-	//ib::info() << "pred is " << struct3333 << " remove is " << in_lock << " next is " << in_lock->hash;
+	//ib::info() << "pred is " << cur_lock << " remove is " << in_lock << " next is " << in_lock->hash;
 
-	outFile << "pred is " << struct3333 << " remove is " << in_lock << " next is " << in_lock->hash << std::endl;
-
-	if(struct3333->hash == NULL){
+	//Jihye : if head and tail is same, can change, but not same, delay -> gclist do,
+	/*if(cur_lock->hash == NULL){
 		cell3333->head = NULL;
 		cell3333->tail = cell3333->head;
 	} else {
-		struct3333->hash = in_lock->hash;		
-	}
+		//Jihye : do not cut the next pointer, just mark deletion
+		cur_lock->state = false;
+		//cur_lock->hash = in_lock->hash;		
+	}*/
+	
+	cur_lock->state = false;
 
 	UT_LIST_REMOVE(trx_lock->trx_locks, in_lock);
 
@@ -3609,7 +3621,8 @@ project4_lock_rec_dequeue_from_page(
 		lock_grant_and_move_on_page(lock_hash, space, page_no);
 	}
 
-	ut_free(in_lock);
+	//Jihye : this physical deletion did by gclist
+	//ut_free(in_lock);
 	
 	
 	//ib::info() << "after free";
@@ -5651,7 +5664,6 @@ lock_release(
 		if (lock_get_type_low(lock) == LOCK_REC) {
 
 			//Jihye : record lock in here
-
 			project4_lock_rec_dequeue_from_page(lock);
 			//lock_rec_dequeue_from_page(lock);
 
@@ -8147,6 +8159,46 @@ lock_trx_release_locks(
 	if (release_lock) {
 
 		lock_release(trx);
+
+		//Jihye : at this point, execute physical delete
+		if(!__sync_lock_test_and_set(&lock_sys->gclist_state, true)){
+			time_t min_timestamp = std::numeric_limits<time_t>::max();
+			for (trx_t* t = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
+		     t != NULL;
+		     t = UT_LIST_GET_NEXT(trx_list, t)) {
+		     	//ib::info() << t->state;
+				//if(t->state == TRX_STATE_COMMITTED_IN_MEMORY && t->start_time < min_timestamp){
+		     	if(t->state == TRX_STATE_ACTIVE && t->start_time < min_timestamp){
+					min_timestamp = t->start_time;
+				}
+			}
+
+			lock_t* old_gclist_tail = (lock_t*)lock_sys->gclist->tail;
+			lock_t* prev_gclist_lock = NULL;
+			lock_t* cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
+			while(cur_gclist_lock != old_gclist_tail) {
+				//Jihye : do physical delete of head
+				if(cur_gclist_lock == lock_sys->gclist->head && cur_gclist_lock->timestamp < min_timestamp){
+					lock_sys->gclist->head = cur_gclist_lock->hash;
+					ut_free(cur_gclist_lock);
+					cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
+					continue;
+				}
+				//Jihye : not head, delete middle node
+				if(cur_gclist_lock->timestamp < min_timestamp){
+					prev_gclist_lock->hash = cur_gclist_lock->hash;
+					ut_free(cur_gclist_lock);
+					cur_gclist_lock = prev_gclist_lock->hash;
+				} else {
+					//Jihye : cannot delete cur node because of timestamp
+					prev_gclist_lock = cur_gclist_lock;
+					cur_gclist_lock = cur_gclist_lock->hash;
+				}
+
+			}
+
+			__sync_lock_release(&lock_sys->gclist_state);
+		}
 
 		//lock_mutex_exit();
 	}
