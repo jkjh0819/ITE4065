@@ -541,7 +541,7 @@ trx_sys_init_at_db_start()
 	}
 
 	//Jihye : trx_sys_count initialize
-	trx_sys->commit_count = 1;
+	trx_sys->timestamp = 1;
 
 	trx_sys_mutex_exit();
 

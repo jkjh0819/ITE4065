@@ -2017,7 +2017,7 @@ trx_commit(
 	}
 
 	//Jihye : trx_commit_time reload
-	trx->timestamp = __sync_fetch_and_add(&trx_sys->commit_count, 1);
+	trx->timestamp = __sync_fetch_and_add(&trx_sys->timestamp, 1);
 	ib::info() << "trx_commit : " << trx->timestamp;
 	trx_commit_low(trx, mtr);
 }

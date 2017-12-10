@@ -146,6 +146,9 @@ struct lock_t {
 	//Jihye : True - alive, False - logical delete
 	bool 		state;
 
+	//Jihye : for gclist next pointer
+	lock_t*		gc_hash;
+
 	/** Determine if the lock object is a record lock.
 	@return true if record lock, false otherwise. */
 	bool is_record_lock() const

@@ -1801,6 +1801,8 @@ RecLock::project4_lock_alloc(
 
 	lock->state = TRUE;
 
+	lock->gc_hash = NULL;
+
 	return(lock);
 }
 
@@ -1983,7 +1985,7 @@ project4_lock_rec_insert_to_tail(
 	}
 
 	//ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
-	ib::info() << cell << " " << old_tail << " -> " << in_lock;
+	//ib::info() << cell << " " << old_tail << " -> " << in_lock;
 	
 }
 
@@ -3521,13 +3523,14 @@ project4_lock_rec_dequeue_from_page(
 	hash_cell_t*    cell3333;
 	lock_t*       cur_lock;
 	lock_t*		  next_lock;
+	ulint 		  	old_timestamp;
 
 	cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
 
 	cur_lock = (lock_t*) cell3333->head;
 
 
-	ib::info() << cell3333 << " try release " << in_lock << " head is " << cur_lock; 
+	//ib::info() << cell3333 << " try release " << in_lock << " head is " << cur_lock; 
 
 	//ib::info() << lock_sys->gclist->tail << " is tail";
 
@@ -3535,21 +3538,22 @@ project4_lock_rec_dequeue_from_page(
 
 	//Jihye : from marked head to non-marked, spin
 	while (!cur_lock->state) {
+
 		if(__sync_bool_compare_and_swap(&cell3333->head, cur_lock, cur_lock->hash)){
 			lock_t* old_gclist_tail = (lock_t *) __sync_lock_test_and_set(&lock_sys->gclist->tail, (void*) cur_lock);
 			//Jihye : timestamp update, recently latest timestamp saved
-			if (cur_lock->timestamp < in_lock->trx->timestamp) {
-				cur_lock->timestamp = in_lock->trx->timestamp;
-			}
+			
+			cur_lock->timestamp = trx_sys->timestamp;
+			
 
 			if (old_gclist_tail == NULL) {
 				lock_sys->gclist->head = cur_lock;
 			} else {
-				old_gclist_tail->hash = cur_lock;
+				old_gclist_tail->gc_hash = cur_lock;
 			}
 			
 			
-			ib::info() << cell3333 << " " << cur_lock << "(" << cur_lock->timestamp<< ") -> GC, head is " << cell3333->head;
+			//ib::info() << cell3333 << " " << cur_lock << "(" << cur_lock->timestamp<< ") -> GC, head is " << cell3333->head;
 		}
 
 		cur_lock = (lock_t*) cell3333->head;
@@ -3559,8 +3563,16 @@ project4_lock_rec_dequeue_from_page(
 	while (cur_lock != in_lock) {
 
 		next_lock = cur_lock->hash;
-		ib::info() << cell3333 << " " << cur_lock<<"("<<cur_lock->state<<")" << " -> " << next_lock <<"(" << next_lock->state << ")"<< " *";
+		//ib::info() << cell3333 << " " << cur_lock<<"("<<cur_lock->state<<")" << " -> " << next_lock <<"(" << next_lock->state << ")"<< " *";
 		ut_a(next_lock);
+
+		
+
+		//Jihye : after long long time, some thread make cur_lock as logical deleted
+		if(!cur_lock->state){
+			cur_lock = next_lock;
+			continue;
+		}
 
 		if(next_lock->state){
 			cur_lock = next_lock;
@@ -3573,18 +3585,18 @@ project4_lock_rec_dequeue_from_page(
 			if(__sync_bool_compare_and_swap(&cur_lock->hash, next_lock, next_lock->hash)){
 				lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
 				//Jihye : timestamp update, recently latest timestamp saved
-				if(next_lock->timestamp < in_lock->trx->timestamp){
-					next_lock->timestamp = in_lock->trx->timestamp;
-				}
+				
+				next_lock->timestamp = trx_sys->timestamp;
+				
 
 				if(old_gclist_tail == NULL){
 					lock_sys->gclist->head = next_lock;
 				} else {
-					old_gclist_tail->hash = next_lock;
+					old_gclist_tail->gc_hash = next_lock;
 				}
 
 				
-				ib::info() << cell3333 << " " << next_lock <<"("<<next_lock->timestamp << ") -> GC, cur_lock is " << cur_lock << " next lock is " << cur_lock->hash;
+				//ib::info() << cell3333 << " " << next_lock <<"("<<next_lock->timestamp << ") -> GC, cur_lock is " << cur_lock << " next lock is " << cur_lock->hash;
 			}
 		}
 
@@ -8224,7 +8236,7 @@ lock_trx_release_locks(
 			for (trx_t* t = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
 		     t != NULL;
 		     t = UT_LIST_GET_NEXT(trx_list, t)) {
-		     	ib::info() << t->state;
+		     	//ib::info() << t->state;
 				//if(t->state == TRX_STATE_COMMITTED_IN_MEMORY && t->start_time < min_timestamp){
 		     	if( (t->state == TRX_STATE_ACTIVE ||t->state == TRX_STATE_COMMITTED_IN_MEMORY) && t->timestamp < min_timestamp){
 					min_timestamp = t->timestamp;
@@ -8235,28 +8247,28 @@ lock_trx_release_locks(
 			lock_t* prev_gclist_lock = NULL;
 			lock_t* cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
 
-			ib::info() << "min timestamp : "<< min_timestamp;
+			//ib::info() << "min timestamp : "<< min_timestamp;
 
 			//Jihye : cur_gclist_lock null check is valid if tail is updated but head is not updated
 			while(cur_gclist_lock != NULL && cur_gclist_lock != old_gclist_tail) {
 				//Jihye : do physical delete of head
 				if(cur_gclist_lock == lock_sys->gclist->head && cur_gclist_lock->timestamp < min_timestamp){
-					lock_sys->gclist->head = cur_gclist_lock->hash;
-					ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
+					lock_sys->gclist->head = cur_gclist_lock->gc_hash;
+					//ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
 					continue;
 				}
 				//Jihye : not head, delete middle node
 				if(cur_gclist_lock->timestamp < min_timestamp){
-					prev_gclist_lock->hash = cur_gclist_lock->hash;
-					ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
+					prev_gclist_lock->gc_hash = cur_gclist_lock->gc_hash;
+					//ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
 					ut_free(cur_gclist_lock);
-					cur_gclist_lock = prev_gclist_lock->hash;
+					cur_gclist_lock = prev_gclist_lock->gc_hash;
 				} else {
 					//Jihye : cannot delete cur node because of timestamp
 					prev_gclist_lock = cur_gclist_lock;
-					cur_gclist_lock = cur_gclist_lock->hash;
+					cur_gclist_lock = cur_gclist_lock->gc_hash;
 				}
 
 			}

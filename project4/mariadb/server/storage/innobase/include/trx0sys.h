@@ -654,7 +654,7 @@ struct trx_sys_t {
 					if such transactions exist. */
 
 	//Jihye : trx_commit_count
-	ulint 		commit_count;
+	ulint 		timestamp;
 };
 
 /** When a trx id which is zero modulo this number (which must be a power of
