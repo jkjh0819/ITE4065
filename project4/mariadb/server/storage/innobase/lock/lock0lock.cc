@@ -1983,7 +1983,7 @@ project4_lock_rec_insert_to_tail(
 	}
 
 	//ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
-	//ib::info() << cell << " has prev " << tail << ", new tail is " << in_lock;
+	ib::info() << cell << " has prev " << old_tail << ", new tail is " << in_lock;
 	
 }
 
@@ -3527,20 +3527,71 @@ project4_lock_rec_dequeue_from_page(
 	cur_lock = (lock_t*) cell3333->head;
 
 
-	//ib::info() << "try release " << in_lock <<" at cell " << cell3333 
-	//				<< " head is " << cur_lock; 
+	ib::info() << cell3333 << " try release " << in_lock << " head is " << cur_lock; 
 
 	//ib::info() << lock_sys->gclist->tail << " is tail";
 
 	ut_a(cur_lock);
 
-	while (cur_lock->hash != NULL && cur_lock != in_lock) {
+	//Jihye : from marked head to non-marked, spin
+	while (!cur_lock->state) {
+		if(__sync_bool_compare_and_swap(&cell3333->head, cur_lock, cur_lock->hash)){
+			lock_t* old_gclist_tail = (lock_t *) __sync_lock_test_and_set(&lock_sys->gclist->tail, (void*) cur_lock);
+			//Jihye : timestamp update, recently latest timestamp saved
+			if (cur_lock->timestamp < in_lock->trx->start_time) {
+				cur_lock->timestamp = in_lock->trx->start_time;
+			}
 
-		
-		// Jihye : at this point, if struct status is deletion mark, cut the next pointer, set epoch?
+			if (old_gclist_tail == NULL) {
+				lock_sys->gclist->head = cur_lock;
+			} else {
+				old_gclist_tail->hash = cur_lock;
+			}
+			
+			
+			ib::info() << cell3333 << " " << cur_lock << " go to GC, next head is " << cell3333->head;
+		}
+
+		cur_lock = (lock_t*) cell3333->head;
+	}
+
+	//Jihye : after connect logical delete marked node to gc, find in_lock and do same thing
+	while (cur_lock != in_lock) {
+
+		next_lock = cur_lock->hash;
+		ut_a(next_lock);
+
+		if(next_lock->state){
+			cur_lock = next_lock;
+			continue;
+		} else {
+			//Jihye : if next_lock is logically deleted, should connect to next_lock->hash, wait for new connected or tail pointing next_lock
+			while(next_lock->hash == NULL && cell3333->tail != next_lock);
+
+			//Jihye : change cur next poiting to next of next
+			if(__sync_bool_compare_and_swap(&cur_lock->hash, next_lock, next_lock->hash)){
+				lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
+				//Jihye : timestamp update, recently latest timestamp saved
+				if(next_lock->timestamp < in_lock->trx->start_time){
+					next_lock->timestamp = in_lock->trx->start_time;
+				}
+
+				if(old_gclist_tail == NULL){
+					lock_sys->gclist->head = next_lock;
+				} else {
+					old_gclist_tail->hash = next_lock;
+				}
+
+				
+				ib::info() << cell3333 << " " << next_lock << " go to GC, next cur_lock is " << cur_lock << " next lock is " << cur_lock->hash;
+			}
+		}
+
+		/*
+		// Jihye : 
 		do {
 			next_lock = cur_lock->hash;
-		} while ( next_lock == NULL && cell3333->tail != next_lock);
+		} while ( next_lock->hash == NULL && cell3333->tail != next_lock);
 
 
 		if(next_lock != NULL && !next_lock->state) {
@@ -3548,18 +3599,23 @@ project4_lock_rec_dequeue_from_page(
 			cur_lock->hash = next_lock->hash; // number 3 -> 1
 
 			lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
-			old_gclist_tail->hash = next_lock;
-			
+			if(old_gclist_tail == NULL){
+				lock_sys->gclist->head = next_lock;
+			} else {
+				old_gclist_tail->hash = next_lock;
+			}
+
 			//Jihye : timestamp update, recently latest timestamp saved
 			if(next_lock->timestamp < in_lock->trx->start_time){
 				next_lock->timestamp = in_lock->trx->start_time;
 			}
 
-			cur_lock = cur_lock->hash;
+			//cur_lock = cur_lock->hash;
+			ib::info() << cell3333 << " " << next_lock << " go to GC, next cur_lock is " << cur_lock;
 		} else {
 			//next is not deleted logically
 			cur_lock = next_lock;
-		}
+		}*/
 
 		//ut_a(cur_lock);
 	}
@@ -7609,6 +7665,7 @@ lock_clust_rec_read_check_and_lock(
 	que_thr_t*		thr)	/*!< in: query thread */
 {
 	//ib::info() << "lock_clust_rec_read_check_and_lock";
+	//ib::info() << "gc head : " << lock_sys->gclist->head;
 	dberr_t	err;
 	ulint	heap_no;
 
@@ -8168,7 +8225,7 @@ lock_trx_release_locks(
 		     t = UT_LIST_GET_NEXT(trx_list, t)) {
 		     	//ib::info() << t->state;
 				//if(t->state == TRX_STATE_COMMITTED_IN_MEMORY && t->start_time < min_timestamp){
-		     	if(t->state == TRX_STATE_ACTIVE && t->start_time < min_timestamp){
+		     	if( (t->state == TRX_STATE_ACTIVE ||t->state == TRX_STATE_COMMITTED_IN_MEMORY) && t->start_time < min_timestamp){
 					min_timestamp = t->start_time;
 				}
 			}
@@ -8176,10 +8233,15 @@ lock_trx_release_locks(
 			lock_t* old_gclist_tail = (lock_t*)lock_sys->gclist->tail;
 			lock_t* prev_gclist_lock = NULL;
 			lock_t* cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
-			while(cur_gclist_lock != old_gclist_tail) {
+
+			ib::info() << "min timestamp : "<< min_timestamp;
+
+			//Jihye : cur_gclist_lock null check is valid if tail is updated but head is not updated
+			while(cur_gclist_lock != NULL && cur_gclist_lock != old_gclist_tail) {
 				//Jihye : do physical delete of head
 				if(cur_gclist_lock == lock_sys->gclist->head && cur_gclist_lock->timestamp < min_timestamp){
 					lock_sys->gclist->head = cur_gclist_lock->hash;
+					ib::info() << cur_gclist_lock << " is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
 					continue;
@@ -8187,6 +8249,7 @@ lock_trx_release_locks(
 				//Jihye : not head, delete middle node
 				if(cur_gclist_lock->timestamp < min_timestamp){
 					prev_gclist_lock->hash = cur_gclist_lock->hash;
+					ib::info() << cur_gclist_lock << " is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = prev_gclist_lock->hash;
 				} else {
