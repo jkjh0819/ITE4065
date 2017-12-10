@@ -1271,6 +1271,9 @@ struct trx_t {
 
 	ulint		magic_n;
 
+	//Jihye : add timestamp
+	ulint 		timestamp;
+
 	/** @return whether any persistent undo log has been generated */
 	bool has_logged_persistent() const
 	{

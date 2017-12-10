@@ -540,6 +540,9 @@ trx_sys_init_at_db_start()
 		ib::info() << "Trx id counter is " << trx_sys->max_trx_id;
 	}
 
+	//Jihye : trx_sys_count initialize
+	trx_sys->commit_count = 1;
+
 	trx_sys_mutex_exit();
 
 	trx_sys->mvcc->clone_oldest_view(&purge_sys->view);

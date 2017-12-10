@@ -210,6 +210,9 @@ trx_init(
 	trx->flush_observer = NULL;
 
 	++trx->version;
+
+	//Jihye : set trx timestamp
+	trx->timestamp = 0;
 }
 
 /** For managing the life-cycle of the trx_t instance that we get
@@ -2013,6 +2016,9 @@ trx_commit(
 		mtr = NULL;
 	}
 
+	//Jihye : trx_commit_time reload
+	trx->timestamp = __sync_fetch_and_add(&trx_sys->commit_count, 1);
+	ib::info() << "trx_commit : " << trx->timestamp;
 	trx_commit_low(trx, mtr);
 }
 

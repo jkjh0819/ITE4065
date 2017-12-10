@@ -1797,7 +1797,7 @@ RecLock::project4_lock_alloc(
 
 	rec_lock.page_no = rec_id.m_page_no;
 
-	lock->timestamp = trx->start_time;
+	lock->timestamp = trx->timestamp;
 
 	lock->state = TRUE;
 
@@ -1983,7 +1983,7 @@ project4_lock_rec_insert_to_tail(
 	}
 
 	//ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
-	ib::info() << cell << " has prev " << old_tail << ", new tail is " << in_lock;
+	ib::info() << cell << " " << old_tail << " -> " << in_lock;
 	
 }
 
@@ -3538,8 +3538,8 @@ project4_lock_rec_dequeue_from_page(
 		if(__sync_bool_compare_and_swap(&cell3333->head, cur_lock, cur_lock->hash)){
 			lock_t* old_gclist_tail = (lock_t *) __sync_lock_test_and_set(&lock_sys->gclist->tail, (void*) cur_lock);
 			//Jihye : timestamp update, recently latest timestamp saved
-			if (cur_lock->timestamp < in_lock->trx->start_time) {
-				cur_lock->timestamp = in_lock->trx->start_time;
+			if (cur_lock->timestamp < in_lock->trx->timestamp) {
+				cur_lock->timestamp = in_lock->trx->timestamp;
 			}
 
 			if (old_gclist_tail == NULL) {
@@ -3549,7 +3549,7 @@ project4_lock_rec_dequeue_from_page(
 			}
 			
 			
-			ib::info() << cell3333 << " " << cur_lock << " go to GC, next head is " << cell3333->head;
+			ib::info() << cell3333 << " " << cur_lock << "(" << cur_lock->timestamp<< ") -> GC, head is " << cell3333->head;
 		}
 
 		cur_lock = (lock_t*) cell3333->head;
@@ -3559,6 +3559,7 @@ project4_lock_rec_dequeue_from_page(
 	while (cur_lock != in_lock) {
 
 		next_lock = cur_lock->hash;
+		ib::info() << cell3333 << " " << cur_lock<<"("<<cur_lock->state<<")" << " -> " << next_lock <<"(" << next_lock->state << ")"<< " *";
 		ut_a(next_lock);
 
 		if(next_lock->state){
@@ -3572,8 +3573,8 @@ project4_lock_rec_dequeue_from_page(
 			if(__sync_bool_compare_and_swap(&cur_lock->hash, next_lock, next_lock->hash)){
 				lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
 				//Jihye : timestamp update, recently latest timestamp saved
-				if(next_lock->timestamp < in_lock->trx->start_time){
-					next_lock->timestamp = in_lock->trx->start_time;
+				if(next_lock->timestamp < in_lock->trx->timestamp){
+					next_lock->timestamp = in_lock->trx->timestamp;
 				}
 
 				if(old_gclist_tail == NULL){
@@ -3583,7 +3584,7 @@ project4_lock_rec_dequeue_from_page(
 				}
 
 				
-				ib::info() << cell3333 << " " << next_lock << " go to GC, next cur_lock is " << cur_lock << " next lock is " << cur_lock->hash;
+				ib::info() << cell3333 << " " << next_lock <<"("<<next_lock->timestamp << ") -> GC, cur_lock is " << cur_lock << " next lock is " << cur_lock->hash;
 			}
 		}
 
@@ -8223,10 +8224,10 @@ lock_trx_release_locks(
 			for (trx_t* t = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
 		     t != NULL;
 		     t = UT_LIST_GET_NEXT(trx_list, t)) {
-		     	//ib::info() << t->state;
+		     	ib::info() << t->state;
 				//if(t->state == TRX_STATE_COMMITTED_IN_MEMORY && t->start_time < min_timestamp){
-		     	if( (t->state == TRX_STATE_ACTIVE ||t->state == TRX_STATE_COMMITTED_IN_MEMORY) && t->start_time < min_timestamp){
-					min_timestamp = t->start_time;
+		     	if( (t->state == TRX_STATE_ACTIVE ||t->state == TRX_STATE_COMMITTED_IN_MEMORY) && t->timestamp < min_timestamp){
+					min_timestamp = t->timestamp;
 				}
 			}
 
@@ -8241,7 +8242,7 @@ lock_trx_release_locks(
 				//Jihye : do physical delete of head
 				if(cur_gclist_lock == lock_sys->gclist->head && cur_gclist_lock->timestamp < min_timestamp){
 					lock_sys->gclist->head = cur_gclist_lock->hash;
-					ib::info() << cur_gclist_lock << " is physically deleted";
+					ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
 					continue;
@@ -8249,7 +8250,7 @@ lock_trx_release_locks(
 				//Jihye : not head, delete middle node
 				if(cur_gclist_lock->timestamp < min_timestamp){
 					prev_gclist_lock->hash = cur_gclist_lock->hash;
-					ib::info() << cur_gclist_lock << " is physically deleted";
+					ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = prev_gclist_lock->hash;
 				} else {
