@@ -2035,7 +2035,7 @@ void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
 	ut_ad(trx_mutex_own(lock->trx));
 
 	if (add_to_hash) {
-		++lock->index->table->n_rec_locks;
+		__sync_fetch_and_add(&lock->index->table->n_rec_locks, 1);
 		//ib::info() << lock <<" add";
 		project4_lock_rec_insert_to_tail(lock, m_rec_id.fold());
 	}
@@ -3513,7 +3513,7 @@ project4_lock_rec_dequeue_from_page(
 	page_no = in_lock->un_member.rec_lock.page_no;
 
 	ut_ad(in_lock->index->table->n_rec_locks > 0);
-	in_lock->index->table->n_rec_locks--;
+	__sync_fetch_and_sub(&in_lock->index->table->n_rec_locks, 1);
 
 	lock_hash = lock_hash_get(in_lock->type_mode);
 
