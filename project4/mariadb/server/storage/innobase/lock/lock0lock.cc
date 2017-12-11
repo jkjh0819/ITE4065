@@ -47,7 +47,7 @@ Created 5/7/1996 Heikki Tuuri
 #include "row0mysql.h"
 #include "pars0pars.h"
 
-//Jihye : for atomic operation, add atomic header
+//Jihye : for finding minimum timestamp, add limits header
 
 #include <limits>
 
@@ -1939,7 +1939,6 @@ lock_rec_insert_to_head(
 	lock_t *in_lock,   /*!< in: lock to be insert */
 	ulint	rec_fold)  /*!< in: rec_fold of the page */
 {
-	//Jihye : this part should add lock to lock list by CAS
 	hash_table_t*		hash;
 	hash_cell_t*		cell;
 	lock_t*				node;
@@ -1963,21 +1962,22 @@ project4_lock_rec_insert_to_tail(
 	lock_t *in_lock,   /*!< in: lock to be insert */
 	ulint	rec_fold)  /*!< in: rec_fold of the page */
 {
-	//Jihye : this part should add lock to lock list by CAS
+	//Jihye : this part should add lock to tail of lock list by TAS
 	hash_table_t*		hash;
 	hash_cell_t*		cell;
 	lock_t*				old_tail;
 
-	if (in_lock == NULL) {
-		return;
-	}
+	ut_a(in_lock);
+	
 
 	hash = lock_hash_get(in_lock->type_mode);
 	cell = hash_get_nth_cell(hash,
 			hash_calc_hash(rec_fold, hash));
 	
+	//do TAS
 	old_tail = (lock_t*) __sync_lock_test_and_set(&cell->tail, in_lock);
 
+	//link cur lock to prev lock, if head is empty, fill head
 	if(old_tail == NULL){
 		cell->head = in_lock;
 	} else {
@@ -1992,7 +1992,6 @@ Add the lock to the record lock hash and the transaction's lock list
 void
 RecLock::lock_add(lock_t* lock, bool add_to_hash)
 {
-	//Jihye : add_to_hash is true
 	ut_ad(lock_mutex_own());
 	ut_ad(trx_mutex_own(lock->trx));
 
@@ -2006,15 +2005,13 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 
 		if (innodb_lock_schedule_algorithm == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS
 			&& !thd_is_replication_slave_thread(lock->trx->mysql_thd)) {
-			//Jihye : about read-only workload, wait_lock is false;
+			
 			if (wait_lock) {
 				HASH_INSERT(lock_t, hash, lock_hash, key, lock);
 			} else {
-				//Jihye : this part will be executed.
 				lock_rec_insert_to_head(lock, m_rec_id.fold());
 			}
 		} else {
-			//Jihye : about read-only workload, wait_lock is false;
 			HASH_INSERT(lock_t, hash, lock_hash, key, lock);
 		}
 	}
@@ -2026,13 +2023,13 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
 }
 
+//Jihye : lock add to record lock list and trx lock list
 void RecLock::project4_lock_add(lock_t* lock, bool add_to_hash){
 
 	ut_ad(trx_mutex_own(lock->trx));
 
 	if (add_to_hash) {
 		__sync_fetch_and_add(&lock->index->table->n_rec_locks, 1);
-		//ib::info() << lock <<" add";
 		project4_lock_rec_insert_to_tail(lock, m_rec_id.fold());
 	}
 
@@ -2050,7 +2047,6 @@ lock_t*
 RecLock::create(trx_t* trx, bool owns_trx_mutex, bool add_to_hash, const lock_prdt_t* prdt)
 {
  	return create(NULL, trx, owns_trx_mutex, add_to_hash, prdt);
-	//return project4_create(NULL, trx, owns_trx_mutex, add_to_hash, true);
 }
 
 lock_t*
@@ -2077,7 +2073,6 @@ RecLock::create(
 	if (c_lock && wsrep_on_trx(trx) &&
 	    wsrep_thd_is_BF(trx->mysql_thd, FALSE)) {
 
-		//Jihye : about read-only workload, this part is not executed.
 		lock_t *hash	= (lock_t *)c_lock->hash;
 		lock_t *prev	= NULL;
 
@@ -2191,16 +2186,9 @@ RecLock::project4_create(lock_t* const	c_lock,
 		bool		owns_trx_mutex,
 		bool		add_to_hash)
 {
-	//ib::info() << "project4 create";
 	ut_ad(owns_trx_mutex == trx_mutex_own(trx));
 
-	/* Create the explicit lock instance and initialise it. */
-
 	lock_t*	lock = project4_lock_alloc(trx, m_index, m_mode, m_rec_id, m_size);
-
-	/* Ensure that another transaction doesn't access the trx
-	lock state and lock data structures while we are adding the
-	lock and changing the transaction state to LOCK_WAIT */
 
 	if (!owns_trx_mutex) {
 		trx_mutex_enter(trx);
@@ -2618,6 +2606,7 @@ lock_rec_lock_fast(
 	return(status);
 }
 
+//Jihye : for read-only workload, make new lock and insert to tail
 UNIV_INLINE
 lock_rec_req_status
 project4_lock_rec_lock_fast(
@@ -2635,10 +2624,6 @@ project4_lock_rec_lock_fast(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	//ib::info() << "project 4 lock_rec_lock_fast";
-
-	//Jihye : make as annotation for removing global lock
-	//ut_ad(lock_mutex_own());
 	ut_ad(!srv_read_only_mode);
 	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
@@ -2662,6 +2647,7 @@ project4_lock_rec_lock_fast(
 
 	trx_mutex_enter(trx);
 	
+	//make new lock
 	rec_lock.project4_create(NULL, trx, true, true);
 
 	trx_mutex_exit(trx);
@@ -2760,8 +2746,6 @@ lock_rec_lock_slow(
 	return(err);
 }
 
-//Jihye : change to use lock-free insert, for this, use atomic operation and get snapshot
-
 /*********************************************************************//**
 Tries to lock the specified record in the mode requested. If not immediately
 possible, enqueues a waiting lock request. This is a low-level function
@@ -2787,7 +2771,6 @@ lock_rec_lock(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	ib::info() << "lock_rec_lock";
 	ut_ad(lock_mutex_own());
 
 	ut_ad(!srv_read_only_mode);
@@ -2836,10 +2819,6 @@ project4_lock_rec_lock(
 	dict_index_t*		index,	/*!< in: index of record */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	//ib::info() << "project4 lock_rec_lock";
-	//Jihye : because lock_enter_mutex will be disappeared, make annotation
-	//ut_ad(lock_mutex_own());
-
 	ut_ad(!srv_read_only_mode);
 	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
@@ -2852,11 +2831,8 @@ project4_lock_rec_lock(
 	      || mode - (LOCK_MODE_MASK & mode) == 0);
 	ut_ad(dict_index_is_clust(index) || !dict_index_is_online_ddl(index));
 
-	/* We try a simplified and faster subroutine for the most
-	common cases */
 
-	//Jihye : use atomic operation for add lock, make annotation
-
+	//Jihye : make new lock and insert to tail
 	project4_lock_rec_lock_fast(impl, mode, block, heap_no, index, thr);
 
 	return(DB_SUCCESS_LOCKED_REC);
@@ -3400,7 +3376,7 @@ project4_lock_rec_dequeue_from_page(
 					get their lock requests granted,
 					if they are now qualified to it */
 {
-	//ib::info() <<  "project4_lock_rec_dequeue_from_page";
+	
 	ulint		space;
 	ulint		page_no;
 	lock_t*		lock;
@@ -3408,7 +3384,6 @@ project4_lock_rec_dequeue_from_page(
 	hash_table_t*	lock_hash;
 
 	ut_ad(lock_get_type_low(in_lock) == LOCK_REC);
-	/* We may or may not be holding in_lock->trx->mutex here. */
 
 	trx_lock = &in_lock->trx->lock;
 
@@ -3420,94 +3395,77 @@ project4_lock_rec_dequeue_from_page(
 
 	lock_hash = lock_hash_get(in_lock->type_mode);
 
-	//ib::info() << "try release " <<in_lock << " of hash " << lock_hash;
-	//ib::info() << "space is " << space << " page_no is " << page_no;
+	hash_cell_t*    cell;
+	lock_t*       	cur_lock;
+	lock_t*		 	next_lock;
 
-	hash_cell_t*    cell3333;
-	lock_t*       cur_lock;
-	lock_t*		  next_lock;
-	ulint 		  	old_timestamp;
+	cell = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
 
-	cell3333 = hash_get_nth_cell(lock_hash, hash_calc_hash(lock_rec_fold(space, page_no), lock_hash));
-
-	cur_lock = (lock_t*) cell3333->head;
-
-
-	//ib::info() << cell3333 << " try release " << in_lock << " head is " << cur_lock; 
-
-	//ib::info() << lock_sys->gclist->tail << " is tail";
+	cur_lock = (lock_t*) cell->head;
 
 	ut_a(cur_lock);
 
-	//Jihye : from marked head to non-marked, spin
+	//Jihye : from marked head to non-marked, cut the link to obsolete marked node
 	while (!cur_lock->state) {
 
-		if(__sync_bool_compare_and_swap(&cell3333->head, cur_lock, cur_lock->hash)){
+		//if success to CAS, update timestamp and link to garage collect list
+		if(__sync_bool_compare_and_swap(&cell->head, cur_lock, cur_lock->hash)){
 			lock_t* old_gclist_tail = (lock_t *) __sync_lock_test_and_set(&lock_sys->gclist->tail, (void*) cur_lock);
-			//Jihye : timestamp update, recently latest timestamp saved
-			
+
 			cur_lock->timestamp = trx_sys->timestamp;
 			
-
+			//if old_gclist_tail is null, it means head is empty, so fill head
 			if (old_gclist_tail == NULL) {
 				lock_sys->gclist->head = cur_lock;
 			} else {
 				old_gclist_tail->gc_hash = cur_lock;
 			}
-			
-			
-			//ib::info() << cell3333 << " " << cur_lock << "(" << cur_lock->timestamp<< ") -> GC, head is " << cell3333->head;
 		}
 
-		cur_lock = (lock_t*) cell3333->head;
+		cur_lock = (lock_t*) cell->head;
 	}
 
-	//Jihye : after connect logical delete marked node to gc, find in_lock and do same thing
+	//Jihye : after search from head to first unmarked node, find in_lock
 	while (cur_lock != in_lock) {
 
 		next_lock = cur_lock->hash;
-		//ib::info() << cell3333 << " " << cur_lock<<"("<<cur_lock->state<<")" << " -> " << next_lock <<"(" << next_lock->state << ")"<< " *";
 		ut_a(next_lock);
 
-		
-
-		//Jihye : after long long time, some thread make cur_lock as logical deleted
+		//Jihye : after long time, an other thread can make cur_lock as logical deleted, then go to next
 		if(!cur_lock->state){
 			cur_lock = next_lock;
 			continue;
 		}
 
+		//Jihye : if next_lock is not obsolete, move next
 		if(next_lock->state){
 			cur_lock = next_lock;
 			continue;
 		} else {
 			//Jihye : if next_lock is logically deleted, should connect to next_lock->hash, wait for new connected or tail pointing next_lock
-			while(next_lock->hash == NULL && cell3333->tail != next_lock);
+			while(next_lock->hash == NULL && cell->tail != next_lock);
 
-			//Jihye : change cur next poiting to next of next
+			//if success to CAS, update timestamp and link to garage collect list
 			if(__sync_bool_compare_and_swap(&cur_lock->hash, next_lock, next_lock->hash)){
 				lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
-				//Jihye : timestamp update, recently latest timestamp saved
 				
 				next_lock->timestamp = trx_sys->timestamp;
 				
-
+				//if old_gclist_tail is null, it means head is empty, so fill head
 				if(old_gclist_tail == NULL){
 					lock_sys->gclist->head = next_lock;
 				} else {
 					old_gclist_tail->gc_hash = next_lock;
 				}
-
-				
-				//ib::info() << cell3333 << " " << next_lock <<"("<<next_lock->timestamp << ") -> GC, cur_lock is " << cur_lock << " next lock is " << cur_lock->hash;
 			}
 		}
 
 	}
 
-	
+	//make in_lock logically deleted
 	cur_lock->state = false;
 
+	//delete from trx_lock list
 	UT_LIST_REMOVE(trx_lock->trx_locks, in_lock);
 
 	if (innodb_lock_schedule_algorithm
@@ -3549,6 +3507,7 @@ project4_lock_rec_dequeue_from_page(
 		lock_grant_and_move_on_page(lock_hash, space, page_no);
 	}
 }
+
 /*************************************************************//**
 Removes a record lock request, waiting or granted, from the queue. */
 void
@@ -5585,7 +5544,7 @@ lock_release(
 
 		if (lock_get_type_low(lock) == LOCK_REC) {
 
-			//Jihye : record lock in here
+			//Jihye : record lock logical delete and cut the obsolete link
 			project4_lock_rec_dequeue_from_page(lock);
 			//lock_rec_dequeue_from_page(lock);
 
@@ -7497,9 +7456,6 @@ lock_sec_rec_read_check_and_lock(
 	return(err);
 }
 
-//Jihye : selection query called 
-
-
 /*********************************************************************//**
 Checks if locks of other transactions prevent an immediate read, or passing
 over by a read cursor, of a clustered index record. If they do, first tests
@@ -7530,8 +7486,6 @@ lock_clust_rec_read_check_and_lock(
 					LOCK_REC_NOT_GAP */
 	que_thr_t*		thr)	/*!< in: query thread */
 {
-	//ib::info() << "lock_clust_rec_read_check_and_lock";
-	//ib::info() << "gc head : " << lock_sys->gclist->head;
 	dberr_t	err;
 	ulint	heap_no;
 
@@ -7564,6 +7518,7 @@ lock_clust_rec_read_check_and_lock(
 	ut_ad(mode != LOCK_S
 	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
 
+	//Jihye : use redesigned lock insert method
 	err = project4_lock_rec_lock(FALSE, mode | gap_mode, block, heap_no, index, thr);
 
 	MONITOR_INC(MONITOR_NUM_RECLOCK_REQ);
@@ -7971,8 +7926,6 @@ lock_unlock_table_autoinc(
 	}
 }
 
-//Jihye : change to mark logical deletion, should make garbage collector
-
 /*********************************************************************//**
 Releases a transaction's locks, and releases possible other transactions
 waiting because of these locks. Change the state of the transaction to
@@ -7982,7 +7935,6 @@ lock_trx_release_locks(
 /*===================*/
 	trx_t*	trx)	/*!< in/out: transaction */
 {
-	//ib::info() << "lock_trx_release_locks";
 	check_trx_state(trx);
 
 	if (trx_state_eq(trx, TRX_STATE_PREPARED)) {
@@ -8008,7 +7960,6 @@ lock_trx_release_locks(
 
 	/* Don't take lock_sys mutex if trx didn't acquire any lock. */
 	if (release_lock) {
-		//Jihye : this part should be annotation for removing global lock
 
 		/* The transition of trx->state to TRX_STATE_COMMITTED_IN_MEMORY
 		is protected by both the lock_sys->mutex and the trx->mutex. */
@@ -8083,14 +8034,13 @@ lock_trx_release_locks(
 
 		lock_release(trx);
 
-		//Jihye : at this point, execute physical delete
+		//Jihye : at this point, execute physical delete, only victim thread do this
 		if(!__sync_lock_test_and_set(&lock_sys->gclist_state, true)){
 			ulint min_timestamp = std::numeric_limits<ulint>::max();
+			//find minimum timestamp among active trx
 			for (trx_t* t = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
 		     t != NULL;
 		     t = UT_LIST_GET_NEXT(trx_list, t)) {
-		     	//ib::info() << t->state;
-				//if(t->state == TRX_STATE_COMMITTED_IN_MEMORY && t->start_time < min_timestamp){
 		     	if( (t->state == TRX_STATE_ACTIVE ||t->state == TRX_STATE_COMMITTED_IN_MEMORY) && t->timestamp < min_timestamp){
 					min_timestamp = t->timestamp;
 				}
@@ -8100,26 +8050,23 @@ lock_trx_release_locks(
 			lock_t* prev_gclist_lock = NULL;
 			lock_t* cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
 
-			//ib::info() << "min timestamp : "<< min_timestamp;
-
 			//Jihye : cur_gclist_lock null check is valid if tail is updated but head is not updated
 			while(cur_gclist_lock != NULL && cur_gclist_lock != old_gclist_tail) {
 				//Jihye : do physical delete of head
 				if(cur_gclist_lock == lock_sys->gclist->head && cur_gclist_lock->timestamp < min_timestamp){
 					lock_sys->gclist->head = cur_gclist_lock->gc_hash;
-					//ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = (lock_t*)lock_sys->gclist->head;
 					continue;
 				}
+
 				//Jihye : not head, delete middle node
 				if(cur_gclist_lock->timestamp < min_timestamp){
 					prev_gclist_lock->gc_hash = cur_gclist_lock->gc_hash;
-					//ib::info() << cur_gclist_lock << "(" << cur_gclist_lock->timestamp<<") is physically deleted";
 					ut_free(cur_gclist_lock);
 					cur_gclist_lock = prev_gclist_lock->gc_hash;
 				} else {
-					//Jihye : cannot delete cur node because of timestamp
+					//Jihye : cannot delete cur node because of timestamp(some thread watch this node)
 					prev_gclist_lock = cur_gclist_lock;
 					cur_gclist_lock = cur_gclist_lock->gc_hash;
 				}
