@@ -1271,7 +1271,7 @@ struct trx_t {
 
 	ulint		magic_n;
 
-	//Jihye : add timestamp
+	//Jihye : timestamp of trx, used for finding min epoch among active threads
 	ulint 		timestamp;
 
 	/** @return whether any persistent undo log has been generated */

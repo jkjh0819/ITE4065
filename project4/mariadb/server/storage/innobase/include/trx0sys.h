@@ -653,7 +653,7 @@ struct trx_sys_t {
 					transactions. We disable query cache
 					if such transactions exist. */
 
-	//Jihye : trx_commit_count
+	//Jihye : trx_commit_count, used as epoch
 	ulint 		timestamp;
 };
 
