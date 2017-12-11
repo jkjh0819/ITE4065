@@ -1983,10 +1983,6 @@ project4_lock_rec_insert_to_tail(
 	} else {
 		old_tail->hash = in_lock;
 	}
-
-	//ib::info() << "hash is "<< hash << " "<< cell << " has prev " << tail << ", new tail is " << in_lock;
-	//ib::info() << cell << " " << old_tail << " -> " << in_lock;
-	
 }
 
 /**
@@ -2764,90 +2760,6 @@ lock_rec_lock_slow(
 	return(err);
 }
 
-static
-dberr_t
-project4_lock_rec_lock_slow(
-/*===============*/
-	ibool			impl,	/*!< in: if TRUE, no lock is set
-					if no wait is necessary: we
-					assume that the caller will
-					set an implicit lock */
-	ulint			mode,	/*!< in: lock mode: LOCK_X or
-					LOCK_S possibly ORed to either
-					LOCK_GAP or LOCK_REC_NOT_GAP */
-	const buf_block_t*	block,	/*!< in: buffer block containing
-					the record */
-	ulint			heap_no,/*!< in: heap number of record */
-	dict_index_t*		index,	/*!< in: index of record */
-	que_thr_t*		thr)	/*!< in: query thread */
-{
-	ib::info() << "project4 lock slow";
-	//Jihye : make as annotation for removing global lock
-	//ut_ad(lock_mutex_own());
-	ut_ad(!srv_read_only_mode);
-	ut_ad((LOCK_MODE_MASK & mode) != LOCK_S
-	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IS));
-	ut_ad((LOCK_MODE_MASK & mode) != LOCK_X
-	      || lock_table_has(thr_get_trx(thr), index->table, LOCK_IX));
-	ut_ad((LOCK_MODE_MASK & mode) == LOCK_S
-	      || (LOCK_MODE_MASK & mode) == LOCK_X);
-	ut_ad(mode - (LOCK_MODE_MASK & mode) == LOCK_GAP
-	      || mode - (LOCK_MODE_MASK & mode) == 0
-	      || mode - (LOCK_MODE_MASK & mode) == LOCK_REC_NOT_GAP);
-	ut_ad(dict_index_is_clust(index) || !dict_index_is_online_ddl(index));
-
-	DBUG_EXECUTE_IF("innodb_report_deadlock", return(DB_DEADLOCK););
-
-	dberr_t	err;
-	trx_t*	trx = thr_get_trx(thr);
-
-	trx_mutex_enter(trx);
-
-	if (lock_rec_has_expl(mode, block, heap_no, trx)) {
-		/* The trx already has a strong enough lock on rec: do
-		nothing */
-
-		err = DB_SUCCESS;
-
-	} else {
-
-		const lock_t* wait_for = lock_rec_other_has_conflicting(
-			mode, block, heap_no, trx);
-
-		if (wait_for != NULL) {
-			//Jihye : about read-only workload, this part is not executed.
-
-			/* If another transaction has a non-gap conflicting
-			request in the queue, as this transaction does not
-			have a lock strong enough already granted on the
-			record, we may have to wait. */
-
-			RecLock	rec_lock(thr, index, block, heap_no, mode);
-
-			err = rec_lock.add_to_waitq(wait_for);
-
-		} else if (!impl) {
-			/* Set the requested lock on the record, note that
-			we already own the transaction mutex. */
-
-
-			lock_rec_add_to_queue(
-				LOCK_REC | mode, block, heap_no, index, trx,
-				true);
-
-			err = DB_SUCCESS_LOCKED_REC;
-		} else {
-			//Jihye : about read-only workload, this part is not executed.
-
-			err = DB_SUCCESS;
-		}
-	}
-
-	trx_mutex_exit(trx);
-
-	return(err);
-}
-
 //Jihye : change to use lock-free insert, for this, use atomic operation and get snapshot
 
 /*********************************************************************//**
@@ -2945,18 +2857,9 @@ project4_lock_rec_lock(
 
 	//Jihye : use atomic operation for add lock, make annotation
 
-	switch (project4_lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
-	case LOCK_REC_SUCCESS:
-		return(DB_SUCCESS);
-	case LOCK_REC_SUCCESS_CREATED:
-		return(DB_SUCCESS_LOCKED_REC);
-	case LOCK_REC_FAIL:
-		return(project4_lock_rec_lock_slow(impl, mode, block,
-					  heap_no, index, thr));
-	}
+	project4_lock_rec_lock_fast(impl, mode, block, heap_no, index, thr);
 
-	ut_error;
-	return(DB_ERROR);
+	return(DB_SUCCESS_LOCKED_REC);
 }
 
 /*********************************************************************//**
@@ -3600,50 +3503,8 @@ project4_lock_rec_dequeue_from_page(
 			}
 		}
 
-		/*
-		// Jihye : 
-		do {
-			next_lock = cur_lock->hash;
-		} while ( next_lock->hash == NULL && cell3333->tail != next_lock);
-
-
-		if(next_lock != NULL && !next_lock->state) {
-			//Jihye : when change cur_lock's next pointer?
-			cur_lock->hash = next_lock->hash; // number 3 -> 1
-
-			lock_t* old_gclist_tail = (lock_t *)__sync_lock_test_and_set(&lock_sys->gclist->tail, (void*)next_lock);
-			if(old_gclist_tail == NULL){
-				lock_sys->gclist->head = next_lock;
-			} else {
-				old_gclist_tail->hash = next_lock;
-			}
-
-			//Jihye : timestamp update, recently latest timestamp saved
-			if(next_lock->timestamp < in_lock->trx->start_time){
-				next_lock->timestamp = in_lock->trx->start_time;
-			}
-
-			//cur_lock = cur_lock->hash;
-			ib::info() << cell3333 << " " << next_lock << " go to GC, next cur_lock is " << cur_lock;
-		} else {
-			//next is not deleted logically
-			cur_lock = next_lock;
-		}*/
-
-		//ut_a(cur_lock);
 	}
 
-	//ib::info() << "pred is " << cur_lock << " remove is " << in_lock << " next is " << in_lock->hash;
-
-	//Jihye : if head and tail is same, can change, but not same, delay -> gclist do,
-	/*if(cur_lock->hash == NULL){
-		cell3333->head = NULL;
-		cell3333->tail = cell3333->head;
-	} else {
-		//Jihye : do not cut the next pointer, just mark deletion
-		cur_lock->state = false;
-		//cur_lock->hash = in_lock->hash;		
-	}*/
 	
 	cur_lock->state = false;
 
@@ -3652,8 +3513,6 @@ project4_lock_rec_dequeue_from_page(
 	if (innodb_lock_schedule_algorithm
 	== INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS ||
 	thd_is_replication_slave_thread(in_lock->trx->mysql_thd)) {
-
-		ib::info() << "in if";
 
 	/* Check if waiting locks in the queue can now be granted:
 	grant locks if there are no conflicting locks ahead. Stop at
@@ -3689,12 +3548,6 @@ project4_lock_rec_dequeue_from_page(
 	} else {
 		lock_grant_and_move_on_page(lock_hash, space, page_no);
 	}
-
-	//Jihye : this physical deletion did by gclist
-	//ut_free(in_lock);
-	
-	
-	//ib::info() << "after free";
 }
 /*************************************************************//**
 Removes a record lock request, waiting or granted, from the queue. */
@@ -8232,7 +8085,7 @@ lock_trx_release_locks(
 
 		//Jihye : at this point, execute physical delete
 		if(!__sync_lock_test_and_set(&lock_sys->gclist_state, true)){
-			time_t min_timestamp = std::numeric_limits<time_t>::max();
+			ulint min_timestamp = std::numeric_limits<ulint>::max();
 			for (trx_t* t = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
 		     t != NULL;
 		     t = UT_LIST_GET_NEXT(trx_list, t)) {
